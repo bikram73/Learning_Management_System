@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lesson | Learning Management System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container nav">
+        <a href="/index.html" class="brand">
+          <span class="brand-badge">L</span>
+          <span>Learning Management System</span>
+        </a>
+        <nav class="nav-links" id="nav-links"></nav>
+      </div>
+    </header>
+
+    <main class="container main">
+      <div id="notice"></div>
+      <section class="card" id="lesson-detail"></section>
+    </main>
+
+    <script src="/js/app.js"></script>
+    <script>
+      mountNav();
+      if (!requireAuth()) {
+        throw new Error("Auth required");
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const lessonId = Number(params.get("id"));
+      const courseId = Number(params.get("course"));
+
+      const notice = document.getElementById("notice");
+      const detail = document.getElementById("lesson-detail");
+      const user = getUser();
+
+      async function loadLesson() {
+        try {
+          const lessons = await apiFetch(`/course/${courseId}/lessons`);
+          const lesson = lessons.find((item) => item.id === lessonId);
+          if (!lesson) {
+            detail.innerHTML = "<h3>Lesson not found.</h3>";
+            return;
+          }
+
+          if (!lesson.unlocked && user.role === "student") {
+            detail.innerHTML = `
+              <h2>${lesson.title}</h2>
+              <p>This lesson is locked. Complete previous lessons first.</p>
+              <a class="btn secondary" href="/course.html?id=${courseId}">Back to Course</a>
+            `;
+            return;
+          }
+
+          detail.innerHTML = `
+            <h2>Lesson ${lesson.lesson_order}: ${lesson.title}</h2>
+            <p style="color:var(--muted);">Watch the lesson video, then mark it complete.</p>
+            <iframe class="video-frame" src="${lesson.video_url}" title="Lesson video" allowfullscreen></iframe>
+            <div class="form-actions">
+              ${user.role === "student" ? '<button class="btn accent" id="complete-btn" type="button">Mark Lesson Complete</button>' : ""}
+              <a class="btn secondary" href="/course.html?id=${courseId}">Back to Course</a>
+            </div>
+          `;
+
+          const completeBtn = document.getElementById("complete-btn");
+          if (completeBtn) {
+            completeBtn.addEventListener("click", completeLesson);
+          }
+        } catch (error) {
+          detail.innerHTML = `<h3>${error.message}</h3>`;
+        }
+      }
+
+      async function completeLesson() {
+        try {
+          await apiFetch("/lesson/complete", {
+            method: "POST",
+            body: JSON.stringify({ lesson_id: lessonId }),
+          });
+          showNotice(notice, "Lesson marked complete. Next lesson unlocked if available.", "success");
+        } catch (error) {
+          showNotice(notice, error.message, "error");
+        }
+      }
+
+      loadLesson();
+    </script>
+  </body>
+</html>

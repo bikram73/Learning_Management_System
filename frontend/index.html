@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LMS | Learn Better</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container nav">
+        <a href="/index.html" class="brand">
+          <span class="brand-badge">L</span>
+          <span>Learning Management System</span>
+        </a>
+        <nav class="nav-links" id="nav-links"></nav>
+      </div>
+    </header>
+
+    <section class="container hero">
+      <div>
+        <h1>Learn at your pace. Track every milestone.</h1>
+        <p>
+          A complete Learning Management System for students and admins. Enroll in structured courses,
+          unlock lessons in sequence, and monitor progress with clear analytics.
+        </p>
+        <div class="form-actions" style="margin-top:18px;">
+          <a class="btn" href="/signup.html">Create Account</a>
+          <a class="btn secondary" href="/login.html">I already have an account</a>
+        </div>
+      </div>
+      <aside class="hero-card">
+        <h3 style="margin-top:0;">What this LMS offers</h3>
+        <div class="grid">
+          <div class="card" style="padding:12px;">
+            <strong>Student Workflow</strong>
+            <p>Enroll, watch lessons, complete modules, and keep progress visible.</p>
+          </div>
+          <div class="card" style="padding:12px;">
+            <strong>Admin Control</strong>
+            <p>Create courses and lessons, manage content order, and track usage.</p>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <main class="container main">
+      <div class="section-head">
+        <h2>Browse Courses</h2>
+        <p>New skills for modern careers</p>
+      </div>
+      <section id="courses-grid" class="grid cols-3"></section>
+    </main>
+
+    <footer class="container footer">Built with Flask, SQLAlchemy, and modern web UI.</footer>
+
+    <script src="/js/app.js"></script>
+    <script>
+      mountNav();
+
+      (async function loadCourses() {
+        const grid = document.getElementById("courses-grid");
+        try {
+          const courses = await apiFetch("/courses");
+          if (!courses.length) {
+            grid.innerHTML = '<article class="card">No courses yet. Admins can add courses from dashboard.</article>';
+            return;
+          }
+          grid.innerHTML = courses.map((course) => fmtCourseCard(course)).join("");
+        } catch (error) {
+          grid.innerHTML = `<article class="card">Unable to load courses: ${error.message}</article>`;
+        }
+      })();
+    </script>
+  </body>
+</html>

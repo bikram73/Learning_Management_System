@@ -1,0 +1,17 @@
+<svg width="220" height="220" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="24" y1="24" x2="196" y2="196" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F80ED"/>
+      <stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+  </defs>
+  <rect x="14" y="14" width="192" height="192" rx="36" fill="#0B1326"/>
+  <rect x="24" y="24" width="172" height="172" rx="30" fill="url(#grad)" opacity="0.22"/>
+  <path d="M52 86C52 75.5066 60.5066 67 71 67H149C159.493 67 168 75.5066 168 86V138C168 148.493 159.493 157 149 157H71C60.5066 157 52 148.493 52 138V86Z" fill="#0F172A"/>
+  <path d="M68 86H152V94H68V86Z" fill="#2DD4BF"/>
+  <path d="M78 113C78 109.686 80.6863 107 84 107H112V145H84C80.6863 145 78 142.314 78 139V113Z" fill="#2F80ED"/>
+  <path d="M142 113C142 109.686 139.314 107 136 107H108V145H136C139.314 145 142 142.314 142 139V113Z" fill="#38BDF8"/>
+  <circle cx="110" cy="111" r="5" fill="#F8FAFC"/>
+  <path d="M104 54L110 45L116 54H104Z" fill="#F59E0B"/>
+  <text x="110" y="180" text-anchor="middle" fill="#E2E8F0" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">LMS</text>
+</svg>

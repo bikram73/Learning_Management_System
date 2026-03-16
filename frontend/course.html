@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Course | Learning Management System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container nav">
+        <a href="/index.html" class="brand">
+          <span class="brand-badge">L</span>
+          <span>Learning Management System</span>
+        </a>
+        <nav class="nav-links" id="nav-links"></nav>
+      </div>
+    </header>
+
+    <main class="container main">
+      <div id="notice"></div>
+      <section class="card" id="course-detail"></section>
+
+      <section class="card" style="margin-top: 16px;">
+        <div class="section-head">
+          <h3>Lessons</h3>
+          <p>Follow lesson order to unlock next content</p>
+        </div>
+        <div id="lessons-wrap"></div>
+      </section>
+    </main>
+
+    <script src="/js/app.js"></script>
+    <script>
+      mountNav();
+
+      const params = new URLSearchParams(window.location.search);
+      const courseId = Number(params.get("id"));
+      const notice = document.getElementById("notice");
+      const detail = document.getElementById("course-detail");
+      const lessonsWrap = document.getElementById("lessons-wrap");
+      const user = getUser();
+
+      async function loadCourse() {
+        try {
+          const course = await apiFetch(`/course/${courseId}`);
+          detail.innerHTML = `
+            <h2>${course.title}</h2>
+            <p>${course.description}</p>
+            <div class="meta">
+              <span class="tag">Instructor: ${course.instructor}</span>
+              <span class="tag">${course.lessons_count} lessons</span>
+            </div>
+            <div class="form-actions" style="margin-top: 12px;">
+              ${user && user.role === "student" ? '<button id="enroll-btn" class="btn" type="button">Enroll in Course</button>' : ""}
+              <a class="btn secondary" href="/dashboard.html">Back to Dashboard</a>
+            </div>
+            <div style="margin-top: 12px;">
+              <strong>Progress</strong>
+              <div class="progress"><span id="progress-fill" style="width:0%"></span></div>
+              <small id="progress-label" style="color:var(--muted);">0%</small>
+            </div>
+          `;
+
+          const enrollBtn = document.getElementById("enroll-btn");
+          if (enrollBtn) {
+            enrollBtn.addEventListener("click", enrollCourse);
+          }
+
+          if (user) {
+            await loadProgress();
+            await loadLessons();
+          } else {
+            lessonsWrap.innerHTML = '<p style="color:var(--muted);">Login to view lessons and progress.</p>';
+          }
+        } catch (error) {
+          detail.innerHTML = `<p>${error.message}</p>`;
+        }
+      }
+
+      async function enrollCourse() {
+        if (!requireAuth(["student"])) return;
+        try {
+          await apiFetch("/enroll", {
+            method: "POST",
+            body: JSON.stringify({ course_id: courseId }),
+          });
+          showNotice(notice, "Enrollment successful.", "success");
+          await loadLessons();
+          await loadProgress();
+        } catch (error) {
+          showNotice(notice, error.message, "error");
+        }
+      }
+
+      async function loadLessons() {
+        try {
+          const lessons = await apiFetch(`/course/${courseId}/lessons`);
+          lessonsWrap.innerHTML = lessons.length
+            ? lessons
+                .map(
+                  (lesson) => `
+                    <div class="lesson-item ${lesson.unlocked ? "" : "locked"}">
+                      <div>
+                        <strong>Lesson ${lesson.lesson_order}: ${lesson.title}</strong><br />
+                        <small style="color:var(--muted);">
+                          ${lesson.completed ? "Completed" : lesson.unlocked ? "Unlocked" : "Locked"}
+                        </small>
+                      </div>
+                      <div>
+                        ${lesson.unlocked ? `<a class="btn" href="/lesson.html?id=${lesson.id}&course=${courseId}">Open</a>` : '<button class="btn secondary" disabled>Locked</button>'}
+                      </div>
+                    </div>
+                  `
+                )
+                .join("")
+            : '<p style="color:var(--muted);">No lessons available yet.</p>';
+        } catch (error) {
+          lessonsWrap.innerHTML = `<p style="color:var(--muted);">${error.message}</p>`;
+        }
+      }
+
+      async function loadProgress() {
+        try {
+          const data = await apiFetch(`/course-progress/${courseId}`);
+          const fill = document.getElementById("progress-fill");
+          const label = document.getElementById("progress-label");
+          if (fill) fill.style.width = `${data.percentage}%`;
+          if (label) label.textContent = `${data.completed_lessons}/${data.total_lessons} lessons complete (${data.percentage}%)`;
+        } catch {
+          // Progress may be unavailable until enrolled.
+        }
+      }
+
+      loadCourse();
+    </script>
+  </body>
+</html>

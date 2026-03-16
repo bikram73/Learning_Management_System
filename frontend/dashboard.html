@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard | Learning Management System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container nav">
+        <a href="/index.html" class="brand">
+          <span class="brand-badge">L</span>
+          <span>Learning Management System</span>
+        </a>
+        <nav class="nav-links" id="nav-links"></nav>
+      </div>
+    </header>
+
+    <main class="container main">
+      <div class="section-head">
+        <h2 id="title">Dashboard</h2>
+        <p id="subtitle"></p>
+      </div>
+
+      <section id="admin-panel" style="display:none; margin-top: 10px; margin-bottom: 26px;">
+        <div class="section-head">
+          <h3>Admin Panel</h3>
+          <p>Create courses and lessons</p>
+        </div>
+
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+          <article class="card">
+            <h3>Create Course</h3>
+            <form id="create-course-form">
+              <label for="course_title">Title</label>
+              <input id="course_title" required />
+
+              <label for="course_description">Description</label>
+              <textarea id="course_description" required></textarea>
+
+              <label for="course_instructor">Instructor</label>
+              <input id="course_instructor" required />
+
+              <label for="course_thumbnail">Thumbnail URL (optional)</label>
+              <input id="course_thumbnail" />
+
+              <div class="form-actions">
+                <button class="btn" type="submit">Create Course</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="card">
+            <h3>Add Lesson</h3>
+            <form id="create-lesson-form">
+              <label for="lesson_course_id">Course ID</label>
+              <input id="lesson_course_id" type="number" required />
+
+              <label for="lesson_title">Lesson Title</label>
+              <input id="lesson_title" required />
+
+              <label for="lesson_video_url">YouTube Embed URL</label>
+              <input id="lesson_video_url" required placeholder="https://www.youtube.com/embed/VIDEO_ID" />
+
+              <label for="lesson_order">Lesson Order</label>
+              <input id="lesson_order" type="number" min="1" required />
+
+              <div class="form-actions">
+                <button class="btn accent" type="submit">Add Lesson</button>
+              </div>
+            </form>
+          </article>
+        </div>
+      </section>
+
+      <div id="notice"></div>
+
+      <section>
+        <div class="section-head">
+          <h3>My Courses</h3>
+          <p>Continue where you left off</p>
+        </div>
+        <div class="grid cols-3" id="my-courses"></div>
+      </section>
+
+      <section id="all-courses-section" style="margin-top: 26px;">
+        <div class="section-head">
+          <h3>All Courses</h3>
+          <p>Discover and enroll</p>
+        </div>
+        <div class="grid cols-3" id="all-courses"></div>
+      </section>
+
+    </main>
+
+    <script src="/js/app.js"></script>
+    <script>
+      mountNav();
+      if (!requireAuth()) {
+        throw new Error("Auth required");
+      }
+
+      const user = getUser();
+      const notice = document.getElementById("notice");
+      document.getElementById("title").textContent = `${user.name}'s Dashboard`;
+      document.getElementById("subtitle").textContent = user.role === "admin" ? "Admin controls enabled" : "Track your learning progress";
+
+      if (user.role === "admin") {
+        document.getElementById("admin-panel").style.display = "block";
+        document.getElementById("all-courses-section").style.display = "none";
+      }
+
+      async function loadMyCourses() {
+        const wrap = document.getElementById("my-courses");
+        try {
+          const courses = await apiFetch("/my-courses");
+          wrap.innerHTML = courses.length
+            ? courses.map((course) => fmtCourseCard(course)).join("")
+            : '<article class="card">No courses yet.</article>';
+        } catch (error) {
+          wrap.innerHTML = `<article class="card">${error.message}</article>`;
+        }
+      }
+
+      async function loadAllCourses() {
+        const wrap = document.getElementById("all-courses");
+        try {
+          const courses = await apiFetch("/courses");
+          wrap.innerHTML = courses.length
+            ? courses.map((course) => fmtCourseCard(course, true)).join("")
+            : '<article class="card">No courses available.</article>';
+        } catch (error) {
+          wrap.innerHTML = `<article class="card">${error.message}</article>`;
+        }
+      }
+
+      const createCourseForm = document.getElementById("create-course-form");
+      if (createCourseForm) {
+        createCourseForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          try {
+            await apiFetch("/course", {
+              method: "POST",
+              body: JSON.stringify({
+                title: document.getElementById("course_title").value,
+                description: document.getElementById("course_description").value,
+                instructor: document.getElementById("course_instructor").value,
+                thumbnail: document.getElementById("course_thumbnail").value,
+              }),
+            });
+
+            showNotice(notice, "Course created successfully.", "success");
+            createCourseForm.reset();
+            loadMyCourses();
+            loadAllCourses();
+          } catch (error) {
+            showNotice(notice, error.message, "error");
+          }
+        });
+      }
+
+      const createLessonForm = document.getElementById("create-lesson-form");
+      if (createLessonForm) {
+        createLessonForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          try {
+            await apiFetch("/lesson", {
+              method: "POST",
+              body: JSON.stringify({
+                course_id: Number(document.getElementById("lesson_course_id").value),
+                title: document.getElementById("lesson_title").value,
+                video_url: document.getElementById("lesson_video_url").value,
+                lesson_order: Number(document.getElementById("lesson_order").value),
+              }),
+            });
+
+            showNotice(notice, "Lesson added successfully.", "success");
+            createLessonForm.reset();
+          } catch (error) {
+            showNotice(notice, error.message, "error");
+          }
+        });
+      }
+
+      loadMyCourses();
+      if (user.role !== "admin") {
+        loadAllCourses();
+      }
+    </script>
+  </body>
+</html>
