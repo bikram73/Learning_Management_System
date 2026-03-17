@@ -17,6 +17,7 @@ class User(db.Model):
     enrollments = db.relationship("Enrollment", back_populates="user", cascade="all, delete-orphan")
     progress_items = db.relationship("Progress", back_populates="user", cascade="all, delete-orphan")
     welcome_email_jobs = db.relationship("WelcomeEmailJob", back_populates="user", cascade="all, delete-orphan")
+    payment_requests = db.relationship("PaymentRequest", back_populates="user", cascade="all, delete-orphan")
 
 
 class Course(db.Model):
@@ -27,6 +28,8 @@ class Course(db.Model):
     description = db.Column(db.Text, nullable=False)
     instructor = db.Column(db.String(120), nullable=False)
     thumbnail = db.Column(db.String(500), nullable=True)
+    pricing_type = db.Column(db.String(20), nullable=False, default="free")
+    price = db.Column(db.Float, nullable=True)
     admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -38,6 +41,7 @@ class Course(db.Model):
         order_by="Lesson.lesson_order",
     )
     enrollments = db.relationship("Enrollment", back_populates="course", cascade="all, delete-orphan")
+    payment_requests = db.relationship("PaymentRequest", back_populates="course", cascade="all, delete-orphan")
 
 
 class Lesson(db.Model):
@@ -105,3 +109,20 @@ class WelcomeEmailJob(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     user = db.relationship("User", back_populates="welcome_email_jobs")
+
+
+class PaymentRequest(db.Model):
+    __tablename__ = "payment_requests"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
+    token = db.Column(db.String(120), unique=True, nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="pending")
+    receipt_number = db.Column(db.String(80), nullable=True)
+    paid_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="payment_requests")
+    course = db.relationship("Course", back_populates="payment_requests")

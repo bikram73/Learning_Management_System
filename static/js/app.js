@@ -164,6 +164,7 @@ function fmtCourseCard(course, includeOpenButton = true) {
       <div class="meta">
         <span class="tag">Instructor: ${course.instructor}</span>
         <span class="tag">${course.lessons_count} lessons</span>
+        <span class="tag">${course.pricing_type === "paid" ? `Paid ($${Number(course.price || 0).toFixed(2)})` : "Free"}</span>
       </div>
       ${includeOpenButton ? `<div style="margin-top:12px;"><a class="btn" href="/course.html?id=${course.id}">Open Course</a></div>` : ""}
     </article>

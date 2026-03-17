@@ -1,11 +1,15 @@
 from datetime import datetime
 import hmac
+from io import BytesIO
+import secrets
 
 from flask import Blueprint, current_app, jsonify, request
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from sqlalchemy import and_
 
 from database import db
-from models import Course, Enrollment, Lesson, Progress, User
+from models import Course, Enrollment, Lesson, PaymentRequest, Progress, User
 from services.auth_service import (
     admin_required,
     generate_token,
@@ -14,7 +18,14 @@ from services.auth_service import (
     login_required,
     verify_password,
 )
-from services.email_service import queue_welcome_email, send_pending_welcome_emails
+from services.email_service import (
+    queue_welcome_email,
+    send_course_paid_email,
+    send_course_payment_email,
+    send_new_lesson_email,
+    send_pending_welcome_emails,
+    send_welcome_course_email,
+)
 
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -27,6 +38,8 @@ def _course_to_dict(course: Course):
         "description": course.description,
         "instructor": course.instructor,
         "thumbnail": course.thumbnail,
+        "pricing_type": course.pricing_type,
+        "price": float(course.price or 0),
         "admin_id": course.admin_id,
         "lessons_count": len(course.lessons),
         "created_at": course.created_at.isoformat(),
@@ -106,6 +119,38 @@ def _is_valid_cron_request() -> bool:
         or request.args.get("token", "")
     )
     return bool(provided_secret) and hmac.compare_digest(provided_secret, expected_secret)
+
+
+def _build_payment_receipt_pdf(user: User, course: Course, receipt_number: str, amount: float) -> bytes:
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    pdf.setTitle(f"LMS Receipt {receipt_number}")
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(48, height - 64, "Learning Management System")
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(48, height - 94, "Payment Receipt")
+
+    y = height - 140
+    rows = [
+        ("Receipt Number", receipt_number),
+        ("Student Name", user.name),
+        ("Student Email", user.email),
+        ("Course", course.title),
+        ("Amount", f"USD {amount:.2f}"),
+        ("Paid At", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")),
+    ]
+    for label, value in rows:
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(48, y, f"{label}:")
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(170, y, str(value))
+        y -= 24
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer.read()
 
 
 @api_bp.get("/health")
@@ -232,11 +277,26 @@ def create_course():
     if error_response:
         return error_response, status
 
+    pricing_type = (data.get("pricing_type") or "free").strip().lower()
+    if pricing_type not in {"free", "paid"}:
+        return jsonify({"error": "pricing_type must be 'free' or 'paid'"}), 400
+
+    price = None
+    if pricing_type == "paid":
+        try:
+            price = float(data.get("price", 0))
+        except (TypeError, ValueError):
+            return jsonify({"error": "price must be a number"}), 400
+        if price <= 0:
+            return jsonify({"error": "price must be greater than 0 for paid courses"}), 400
+
     course = Course(
         title=data["title"].strip(),
         description=data["description"].strip(),
         instructor=data["instructor"].strip(),
         thumbnail=(data.get("thumbnail") or "").strip() or None,
+        pricing_type=pricing_type,
+        price=price,
         admin_id=request.current_user.id,
     )
     db.session.add(course)
@@ -263,6 +323,23 @@ def update_course(course_id: int):
         course.instructor = data["instructor"].strip()
     if "thumbnail" in data:
         course.thumbnail = (data.get("thumbnail") or "").strip() or None
+    if "pricing_type" in data:
+        pricing_type = (data.get("pricing_type") or "").strip().lower()
+        if pricing_type not in {"free", "paid"}:
+            return jsonify({"error": "pricing_type must be 'free' or 'paid'"}), 400
+        course.pricing_type = pricing_type
+        if pricing_type == "free":
+            course.price = None
+    if "price" in data:
+        if course.pricing_type != "paid":
+            return jsonify({"error": "Price can be set only for paid courses"}), 400
+        try:
+            parsed_price = float(data.get("price", 0))
+        except (TypeError, ValueError):
+            return jsonify({"error": "price must be a number"}), 400
+        if parsed_price <= 0:
+            return jsonify({"error": "price must be greater than 0 for paid courses"}), 400
+        course.price = parsed_price
 
     db.session.commit()
     return jsonify({"message": "Course updated", "course": _course_to_dict(course)})
@@ -332,6 +409,18 @@ def create_lesson():
         db.session.rollback()
         return jsonify({"error": "Lesson order must be unique per course"}), 409
 
+    enrolled_students = (
+        User.query.join(Enrollment, Enrollment.user_id == User.id)
+        .filter(Enrollment.course_id == course.id, User.role == "student")
+        .all()
+    )
+    for student in enrolled_students:
+        try:
+            send_new_lesson_email(student, course, lesson)
+        except Exception:
+            # Do not block lesson creation if email sending fails.
+            pass
+
     return jsonify({"message": "Lesson created", "lesson": _lesson_to_dict(lesson)}), 201
 
 
@@ -392,11 +481,106 @@ def enroll_course():
     if _is_enrolled(current_user.id, course.id):
         return jsonify({"message": "Already enrolled"}), 200
 
+    if course.pricing_type == "paid":
+        pending_request = (
+            PaymentRequest.query.filter_by(
+                user_id=current_user.id,
+                course_id=course.id,
+                status="pending",
+            )
+            .order_by(PaymentRequest.created_at.desc())
+            .first()
+        )
+        if not pending_request:
+            pending_request = PaymentRequest(
+                user_id=current_user.id,
+                course_id=course.id,
+                token=secrets.token_urlsafe(32),
+                amount=float(course.price or 0),
+                status="pending",
+            )
+            db.session.add(pending_request)
+            db.session.commit()
+
+        try:
+            send_course_payment_email(current_user, course, pending_request.token)
+        except Exception as exc:
+            return jsonify({"error": f"Failed to send payment email: {str(exc)}"}), 500
+
+        return jsonify({
+            "message": "This is a paid course. A payment link has been sent to your email.",
+            "payment_required": True,
+        }), 202
+
     enrollment = Enrollment(user_id=current_user.id, course_id=course.id)
     db.session.add(enrollment)
     db.session.commit()
 
+    try:
+        send_welcome_course_email(current_user, course)
+    except Exception:
+        pass
+
     return jsonify({"message": "Enrollment successful"}), 201
+
+
+@api_bp.get("/payment/<string:token>")
+def get_payment_request(token: str):
+    payment_request = PaymentRequest.query.filter_by(token=token).first()
+    if not payment_request or payment_request.status != "pending":
+        return jsonify({"error": "Payment link is invalid or expired"}), 404
+
+    return jsonify({
+        "course_id": payment_request.course.id,
+        "course_title": payment_request.course.title,
+        "amount": float(payment_request.amount),
+        "email_hint": payment_request.user.email,
+    })
+
+
+@api_bp.post("/payment/<string:token>/complete")
+def complete_payment(token: str):
+    data, error_response, status = _require_json_body(["email", "password"])
+    if error_response:
+        return error_response, status
+
+    payment_request = PaymentRequest.query.filter_by(token=token).first()
+    if not payment_request or payment_request.status != "pending":
+        return jsonify({"error": "Payment link is invalid or expired"}), 404
+
+    email = data["email"].strip().lower()
+    user = User.query.filter_by(email=email).first()
+    if not user or user.id != payment_request.user_id:
+        return jsonify({"error": "Email does not match this payment request"}), 403
+    if not verify_password(user.password_hash, data["password"]):
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    course = payment_request.course
+    if not _is_enrolled(user.id, course.id):
+        db.session.add(Enrollment(user_id=user.id, course_id=course.id))
+
+    receipt_number = f"LMS-{payment_request.id}-{int(datetime.utcnow().timestamp())}"
+    payment_request.status = "paid"
+    payment_request.receipt_number = receipt_number
+    payment_request.paid_at = datetime.utcnow()
+    db.session.commit()
+
+    receipt_pdf = _build_payment_receipt_pdf(user, course, receipt_number, float(payment_request.amount))
+
+    try:
+        send_course_paid_email(user, course, receipt_number, receipt_pdf)
+    except Exception:
+        pass
+
+    try:
+        send_welcome_course_email(user, course)
+    except Exception:
+        pass
+
+    return jsonify({
+        "message": "Payment successful. You are now enrolled in the course.",
+        "receipt_number": receipt_number,
+    })
 
 
 @api_bp.get("/my-courses")

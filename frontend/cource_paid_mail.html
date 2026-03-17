@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#eef3ff;font-family:Arial,Helvetica,sans-serif;color:#12223f;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 0;background:#eef3ff;">
+      <tr><td align="center">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#fff;border-radius:16px;overflow:hidden;">
+          <tr><td style="padding:24px 28px;background:linear-gradient(135deg,#1d9a68,#2f80ed);color:#fff;">
+            <h2 style="margin:0 0 8px;">Payment Successful</h2>
+            <p style="margin:0;line-height:1.6;color:#e8f3ff;">Hi {{ user_name }}, your payment has been confirmed and the course is now unlocked.</p>
+          </td></tr>
+          <tr><td style="padding:24px 28px;">
+            <p style="margin:0 0 8px;"><strong>Course:</strong> {{ course_title }}</p>
+            <p style="margin:0 0 8px;"><strong>Amount Paid:</strong> ${{ amount }}</p>
+            <p style="margin:0 0 16px;"><strong>Receipt Number:</strong> {{ receipt_number }}</p>
+            <a href="{{ dashboard_url }}" style="display:inline-block;padding:12px 18px;background:#2f80ed;color:#fff;text-decoration:none;border-radius:10px;font-weight:700;">Open Dashboard</a>
+            <p style="margin:18px 0 0;color:#5a6b87;font-size:13px;">A PDF receipt is attached with this email.</p>
+          </td></tr>
+          <tr><td style="padding:16px 28px;background:#f6f9ff;color:#5a6b87;font-size:13px;">Need help? {{ support_email }} | © {{ current_year }} {{ app_name }}</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>

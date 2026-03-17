@@ -32,6 +32,10 @@ def ensure_schema_compatibility(app: Flask):
     columns = {row[1] for row in result.fetchall()}
     if "admin_id" not in columns:
         db.session.execute(text("ALTER TABLE courses ADD COLUMN admin_id INTEGER"))
+    if "pricing_type" not in columns:
+        db.session.execute(text("ALTER TABLE courses ADD COLUMN pricing_type TEXT DEFAULT 'free'"))
+    if "price" not in columns:
+        db.session.execute(text("ALTER TABLE courses ADD COLUMN price REAL"))
         db.session.commit()
 
 

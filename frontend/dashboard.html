@@ -52,6 +52,15 @@
               <label for="course_thumbnail">Thumbnail URL (optional)</label>
               <input id="course_thumbnail" />
 
+              <label for="course_pricing_type">Pricing</label>
+              <select id="course_pricing_type">
+                <option value="free">Free</option>
+                <option value="paid">Paid</option>
+              </select>
+
+              <label for="course_price">Price (USD)</label>
+              <input id="course_price" type="number" min="0" step="0.01" placeholder="e.g. 49.99" disabled />
+
               <div class="form-actions">
                 <button class="btn" type="submit">Create Course</button>
               </div>
@@ -132,6 +141,7 @@
             <div class="meta">
               <span class="tag">Instructor: ${course.instructor}</span>
               <span class="tag">${course.lessons_count} lessons</span>
+              <span class="tag">${course.pricing_type === "paid" ? `Paid ($${Number(course.price || 0).toFixed(2)})` : "Free"}</span>
             </div>
             <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
               <a class="btn secondary" href="/course.html?id=${course.id}">Open</a>
@@ -215,18 +225,42 @@
       }
 
       const createCourseForm = document.getElementById("create-course-form");
+      const coursePricingType = document.getElementById("course_pricing_type");
+      const coursePriceInput = document.getElementById("course_price");
+
+      function syncCoursePricingFields() {
+        const isPaid = coursePricingType.value === "paid";
+        coursePriceInput.disabled = !isPaid;
+        coursePriceInput.required = isPaid;
+        if (!isPaid) {
+          coursePriceInput.value = "";
+        }
+      }
+
+      if (coursePricingType) {
+        coursePricingType.addEventListener("change", syncCoursePricingFields);
+        syncCoursePricingFields();
+      }
+
       if (createCourseForm) {
         createCourseForm.addEventListener("submit", async (event) => {
           event.preventDefault();
           try {
+            const pricingType = document.getElementById("course_pricing_type").value;
+            const payload = {
+              title: document.getElementById("course_title").value,
+              description: document.getElementById("course_description").value,
+              instructor: document.getElementById("course_instructor").value,
+              thumbnail: document.getElementById("course_thumbnail").value,
+              pricing_type: pricingType,
+            };
+            if (pricingType === "paid") {
+              payload.price = Number(document.getElementById("course_price").value);
+            }
+
             await apiFetch("/course", {
               method: "POST",
-              body: JSON.stringify({
-                title: document.getElementById("course_title").value,
-                description: document.getElementById("course_description").value,
-                instructor: document.getElementById("course_instructor").value,
-                thumbnail: document.getElementById("course_thumbnail").value,
-              }),
+              body: JSON.stringify(payload),
             });
 
             showNotice(notice, "Course created successfully.", "success");

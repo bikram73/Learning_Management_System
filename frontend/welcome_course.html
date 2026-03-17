@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#eef3ff;font-family:Arial,Helvetica,sans-serif;color:#12223f;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 0;background:#eef3ff;">
+      <tr><td align="center">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#fff;border-radius:16px;overflow:hidden;">
+          <tr><td style="padding:24px 28px;background:linear-gradient(135deg,#2457c5,#1ab39d);color:#fff;">
+            <h2 style="margin:0 0 8px;">Welcome to Your Course</h2>
+            <p style="margin:0;line-height:1.6;color:#e8f3ff;">Hi {{ user_name }}, you are successfully enrolled in {{ course_title }}.</p>
+          </td></tr>
+          <tr><td style="padding:24px 28px;">
+            <p style="margin:0 0 8px;"><strong>Course:</strong> {{ course_title }}</p>
+            <p style="margin:0 0 8px;"><strong>Instructor:</strong> {{ instructor }}</p>
+            <p style="margin:0 0 18px;"><strong>Type:</strong> {{ pricing_type }}{% if pricing_type == 'Paid' %} (${{ amount }}){% endif %}</p>
+            <a href="{{ course_url }}" style="display:inline-block;padding:12px 18px;background:#2457c5;color:#fff;text-decoration:none;border-radius:10px;font-weight:700;">Open Course</a>
+            <a href="{{ dashboard_url }}" style="display:inline-block;padding:12px 18px;background:#eaf1ff;color:#2457c5;text-decoration:none;border-radius:10px;font-weight:700;border:1px solid #c6d6ff;margin-left:8px;">Dashboard</a>
+          </td></tr>
+          <tr><td style="padding:16px 28px;background:#f6f9ff;color:#5a6b87;font-size:13px;">Need help? {{ support_email }} | © {{ current_year }} {{ app_name }}</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>

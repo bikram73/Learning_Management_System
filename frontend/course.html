@@ -54,9 +54,10 @@
             <div class="meta">
               <span class="tag">Instructor: ${course.instructor}</span>
               <span class="tag">${course.lessons_count} lessons</span>
+              <span class="tag">${course.pricing_type === "paid" ? `Paid ($${Number(course.price || 0).toFixed(2)})` : "Free"}</span>
             </div>
             <div class="form-actions" style="margin-top: 12px;">
-              ${user && user.role === "student" ? '<button id="enroll-btn" class="btn" type="button">Enroll in Course</button>' : ""}
+              ${user && user.role === "student" ? `<button id="enroll-btn" class="btn" type="button">${course.pricing_type === "paid" ? "Pay & Enroll" : "Enroll in Course"}</button>` : ""}
               <a class="btn secondary" href="/dashboard.html">Back to Dashboard</a>
             </div>
             <div style="margin-top: 12px;">
@@ -85,11 +86,15 @@
       async function enrollCourse() {
         if (!requireAuth(["student"])) return;
         try {
-          await apiFetch("/enroll", {
+          const result = await apiFetch("/enroll", {
             method: "POST",
             body: JSON.stringify({ course_id: courseId }),
           });
-          showNotice(notice, "Enrollment successful.", "success");
+          if (result.payment_required) {
+            showNotice(notice, result.message, "success");
+            return;
+          }
+          showNotice(notice, result.message || "Enrollment successful.", "success");
           await loadLessons();
           await loadProgress();
         } catch (error) {
