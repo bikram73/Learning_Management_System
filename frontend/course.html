@@ -97,9 +97,21 @@
         }
       }
 
+      async function deleteLesson(lessonId) {
+        if (!confirm("Delete this lesson?")) return;
+        try {
+          await apiFetch(`/lesson/${lessonId}`, { method: "DELETE" });
+          showNotice(notice, "Lesson deleted.", "success");
+          loadLessons();
+        } catch (error) {
+          showNotice(notice, error.message, "error");
+        }
+      }
+
       async function loadLessons() {
         try {
           const lessons = await apiFetch(`/course/${courseId}/lessons`);
+          const isAdmin = user && user.role === "admin";
           lessonsWrap.innerHTML = lessons.length
             ? lessons
                 .map(
@@ -111,8 +123,9 @@
                           ${lesson.completed ? "Completed" : lesson.unlocked ? "Unlocked" : "Locked"}
                         </small>
                       </div>
-                      <div>
+                      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                         ${lesson.unlocked ? `<a class="btn" href="/lesson.html?id=${lesson.id}&course=${courseId}">Open</a>` : '<button class="btn secondary" disabled>Locked</button>'}
+                        ${isAdmin ? `<button class="btn" style="background:#e53e3e; border-color:#e53e3e; padding:6px 12px;" onclick="deleteLesson(${lesson.id})">Delete</button>` : ""}
                       </div>
                     </div>
                   `

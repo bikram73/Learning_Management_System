@@ -443,3 +443,55 @@ def course_progress(course_id: int):
             "percentage": percentage,
         }
     )
+
+
+@api_bp.get("/profile")
+@login_required
+def get_profile():
+    user = request.current_user
+    return jsonify({
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+    })
+
+
+@api_bp.put("/profile")
+@login_required
+def update_profile():
+    data = request.get_json(silent=True) or {}
+    user = request.current_user
+    changed = False
+
+    new_name = data.get("name", "").strip()
+    if new_name:
+        user.name = new_name
+        changed = True
+
+    new_email = data.get("email", "").strip().lower()
+    if new_email and new_email != user.email:
+        if User.query.filter_by(email=new_email).first():
+            return jsonify({"error": "Email already in use by another account"}), 409
+        user.email = new_email
+        changed = True
+
+    new_password = data.get("password", "").strip()
+    if new_password:
+        if len(new_password) < 6:
+            return jsonify({"error": "Password must be at least 6 characters"}), 400
+        user.password_hash = hash_password(new_password)
+        changed = True
+
+    if changed:
+        db.session.commit()
+
+    return jsonify({
+        "message": "Profile updated successfully" if changed else "No changes made",
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+        },
+    })

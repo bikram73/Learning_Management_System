@@ -17,7 +17,10 @@
           <span class="brand-badge">L</span>
           <span>Learning Management System</span>
         </a>
-        <nav class="nav-links" id="nav-links"></nav>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <a class="btn secondary" href="/profile.html" style="padding:8px 14px;">&#9881; Profile</a>
+          <nav class="nav-links" id="nav-links"></nav>
+        </div>
       </div>
     </header>
 
@@ -59,7 +62,8 @@
             <h3>Add Lesson</h3>
             <form id="create-lesson-form">
               <label for="lesson_course_id">Course ID</label>
-              <input id="lesson_course_id" type="number" required />
+              <input id="lesson_course_id" type="number" required placeholder="Enter course ID" />
+              <small id="lesson_course_hint" style="color:var(--muted); font-size:0.8rem;"></small>
 
               <label for="lesson_title">Lesson Title</label>
               <input id="lesson_title" required />
@@ -67,7 +71,7 @@
               <label for="lesson_video_url">YouTube Embed URL</label>
               <input id="lesson_video_url" required placeholder="https://www.youtube.com/embed/VIDEO_ID" />
 
-              <label for="lesson_order">Lesson Order</label>
+              <label for="lesson_order">Lesson Order <span style="color:var(--muted);font-size:0.8rem;">(auto-filled)</span></label>
               <input id="lesson_order" type="number" min="1" required />
 
               <div class="form-actions">
@@ -75,6 +79,8 @@
               </div>
             </form>
           </article>
+
+
         </div>
       </section>
 
@@ -115,12 +121,81 @@
         document.getElementById("all-courses-section").style.display = "none";
       }
 
+      function fmtAdminCourseCard(course) {
+        const thumb = course.thumbnail || "https://images.unsplash.com/photo-1513258496099-48168024aec0?auto=format&fit=crop&w=900&q=70";
+        return `
+          <article class="card stagger">
+            <img src="${thumb}" alt="${course.title}" style="width:100%;height:170px;object-fit:cover;border-radius:12px;" />
+            <span class="tag" style="display:inline-block;margin-bottom:6px;color:var(--muted);">ID: ${course.id}</span>
+            <h3>${course.title}</h3>
+            <p>${course.description}</p>
+            <div class="meta">
+              <span class="tag">Instructor: ${course.instructor}</span>
+              <span class="tag">${course.lessons_count} lessons</span>
+            </div>
+            <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+              <a class="btn secondary" href="/course.html?id=${course.id}">Open</a>
+              <button class="btn" style="background:#e53e3e; border-color:#e53e3e;" onclick="deleteCourse(${course.id})">Delete Course</button>
+            </div>
+          </article>
+        `;
+      }
+
+      async function deleteCourse(courseId) {
+        if (!confirm("Delete this course? All its lessons will also be deleted.")) return;
+        try {
+          await apiFetch(`/course/${courseId}`, { method: "DELETE" });
+          showNotice(notice, "Course deleted successfully.", "success");
+          loadMyCourses();
+        } catch (error) {
+          showNotice(notice, error.message, "error");
+        }
+      }
+
+      async function loadLessonsForManage() {
+        const courseId = document.getElementById("manage_course_id").value;
+        if (!courseId) return;
+        const listEl = document.getElementById("lessons-list");
+        listEl.innerHTML = '<p style="color:var(--muted); font-size:0.875rem;">Loading...</p>';
+        try {
+          const lessons = await apiFetch(`/course/${courseId}/lessons`);
+          if (!lessons.length) {
+            listEl.innerHTML = '<p style="color:var(--muted); font-size:0.875rem;">No lessons found.</p>';
+            return;
+          }
+          listEl.innerHTML = lessons
+            .sort((a, b) => a.lesson_order - b.lesson_order)
+            .map(
+              (lesson) => `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border, #eee);">
+                <span style="font-size:0.875rem;">#${lesson.lesson_order} &ndash; ${lesson.title}</span>
+                <button class="btn" style="padding:4px 10px; font-size:0.75rem; background:#e53e3e; border-color:#e53e3e; flex-shrink:0; margin-left:8px;" onclick="deleteLessonById(${lesson.id}, ${courseId})">Delete</button>
+              </div>`
+            )
+            .join("");
+        } catch (error) {
+          listEl.innerHTML = `<p style="color:#e53e3e; font-size:0.875rem;">${error.message}</p>`;
+        }
+      }
+
+      async function deleteLessonById(lessonId, courseId) {
+        if (!confirm("Delete this lesson?")) return;
+        try {
+          await apiFetch(`/lesson/${lessonId}`, { method: "DELETE" });
+          showNotice(notice, "Lesson deleted successfully.", "success");
+          document.getElementById("manage_course_id").value = courseId;
+          loadLessonsForManage();
+        } catch (error) {
+          showNotice(notice, error.message, "error");
+        }
+      }
+
       async function loadMyCourses() {
         const wrap = document.getElementById("my-courses");
         try {
           const courses = await apiFetch("/my-courses");
           wrap.innerHTML = courses.length
-            ? courses.map((course) => fmtCourseCard(course)).join("")
+            ? courses.map((course) => user.role === "admin" ? fmtAdminCourseCard(course) : fmtCourseCard(course)).join("")
             : '<article class="card">No courses yet.</article>';
         } catch (error) {
           wrap.innerHTML = `<article class="card">${error.message}</article>`;
@@ -164,15 +239,45 @@
         });
       }
 
+      async function fetchNextLessonOrder(courseId) {
+        const hintEl = document.getElementById("lesson_course_hint");
+        const orderEl = document.getElementById("lesson_order");
+        if (!courseId) {
+          hintEl.textContent = "";
+          orderEl.value = "";
+          return;
+        }
+        try {
+          const lessons = await apiFetch(`/course/${courseId}/lessons`);
+          const nextOrder = lessons.length > 0 ? Math.max(...lessons.map((l) => l.lesson_order)) + 1 : 1;
+          orderEl.value = nextOrder;
+          hintEl.textContent = `Course has ${lessons.length} lesson(s). Next order: ${nextOrder}`;
+        } catch {
+          hintEl.textContent = "Course not found or not accessible.";
+          orderEl.value = "";
+        }
+      }
+
+      const lessonCourseIdInput = document.getElementById("lesson_course_id");
+      if (lessonCourseIdInput) {
+        lessonCourseIdInput.addEventListener("change", () => {
+          fetchNextLessonOrder(lessonCourseIdInput.value);
+        });
+        lessonCourseIdInput.addEventListener("blur", () => {
+          fetchNextLessonOrder(lessonCourseIdInput.value);
+        });
+      }
+
       const createLessonForm = document.getElementById("create-lesson-form");
       if (createLessonForm) {
         createLessonForm.addEventListener("submit", async (event) => {
           event.preventDefault();
+          const courseId = Number(document.getElementById("lesson_course_id").value);
           try {
             await apiFetch("/lesson", {
               method: "POST",
               body: JSON.stringify({
-                course_id: Number(document.getElementById("lesson_course_id").value),
+                course_id: courseId,
                 title: document.getElementById("lesson_title").value,
                 video_url: document.getElementById("lesson_video_url").value,
                 lesson_order: Number(document.getElementById("lesson_order").value),
@@ -180,11 +285,20 @@
             });
 
             showNotice(notice, "Lesson added successfully.", "success");
-            createLessonForm.reset();
+            // Keep course ID so admin can add more lessons; clear only title/url/order
+            document.getElementById("lesson_title").value = "";
+            document.getElementById("lesson_video_url").value = "";
+            // Refresh next order for the same course
+            fetchNextLessonOrder(courseId);
           } catch (error) {
             showNotice(notice, error.message, "error");
           }
         });
+      }
+
+      const loadLessonsBtn = document.getElementById("load-lessons-btn");
+      if (loadLessonsBtn) {
+        loadLessonsBtn.addEventListener("click", loadLessonsForManage);
       }
 
       loadMyCourses();

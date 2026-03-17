@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile | Learning Management System</title>
+    <link rel="icon" type="image/svg+xml" href="/img/lms-logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/style.css" />
+    <style>
+      .profile-avatar {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary), var(--accent));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: #fff;
+        flex-shrink: 0;
+        margin-bottom: 14px;
+      }
+      .profile-role-pill {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: capitalize;
+        margin-bottom: 4px;
+      }
+      .profile-role-pill.admin {
+        background: rgba(245, 158, 11, 0.18);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        color: var(--warm);
+      }
+      .profile-role-pill.student {
+        background: rgba(47, 128, 237, 0.18);
+        border: 1px solid rgba(47, 128, 237, 0.45);
+        color: var(--primary);
+      }
+      .profile-info-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(182, 196, 229, 0.12);
+        font-size: 0.9rem;
+      }
+      .profile-info-row:last-child {
+        border-bottom: none;
+      }
+      .profile-info-label {
+        color: var(--muted);
+        width: 80px;
+        flex-shrink: 0;
+        font-size: 0.82rem;
+      }
+      .profile-info-value {
+        font-weight: 500;
+        word-break: break-all;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid rgba(182, 196, 229, 0.14);
+        margin: 28px 0 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="container nav">
+        <a href="/index.html" class="brand">
+          <span class="brand-badge">L</span>
+          <span>Learning Management System</span>
+        </a>
+        <nav class="nav-links" id="nav-links"></nav>
+      </div>
+    </header>
+
+    <main class="container main">
+      <div class="section-head" style="justify-content: center; text-align: center;">
+        <div>
+          <h2 style="margin-bottom: 4px;">My Profile</h2>
+          <p>View and edit your account details</p>
+        </div>
+      </div>
+
+      <div style="max-width: 520px; margin: 0 auto;">
+        <!-- Current profile snapshot -->
+        <article class="card" style="margin-bottom: 18px; text-align: center;">
+          <div class="profile-avatar" id="avatar-initials" style="margin-left: auto; margin-right: auto;">?</div>
+          <span class="profile-role-pill" id="profile-role-pill"></span>
+
+          <div style="margin-top: 10px;">
+            <div class="profile-info-row">
+              <span class="profile-info-label">Name</span>
+              <span class="profile-info-value" id="view-name">—</span>
+            </div>
+            <div class="profile-info-row">
+              <span class="profile-info-label">Email</span>
+              <span class="profile-info-value" id="view-email">—</span>
+            </div>
+            <div class="profile-info-row">
+              <span class="profile-info-label">Role</span>
+              <span class="profile-info-value" id="view-role">—</span>
+            </div>
+            <div class="profile-info-row">
+              <span class="profile-info-label">Password</span>
+              <span class="profile-info-value" style="color:var(--muted); font-size:0.82rem;">••••••••  (use the form below to change)</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Edit form -->
+        <article class="card">
+          <h3 style="margin-top:0; margin-bottom:4px;">Edit Details</h3>
+          <p style="color:var(--muted); font-size:0.875rem; margin-top:0; margin-bottom:16px;">
+            Update your name, email, or change your password.
+          </p>
+
+          <form id="profile-form" autocomplete="off" novalidate>
+            <label for="profile_name">Name</label>
+            <input id="profile_name" type="text" required autocomplete="name" />
+
+            <label for="profile_email">Email</label>
+            <input id="profile_email" type="email" required autocomplete="email" />
+
+            <hr class="divider" />
+
+            <label for="profile_password">
+              New Password
+              <span style="color:var(--muted); font-size:0.78rem;">(leave blank to keep current)</span>
+            </label>
+            <input id="profile_password" type="password" placeholder="Enter new password" autocomplete="new-password" />
+
+            <label for="profile_password_confirm">Confirm New Password</label>
+            <input id="profile_password_confirm" type="password" placeholder="Confirm new password" autocomplete="new-password" />
+
+            <div class="form-actions" style="margin-top: 20px;">
+              <button class="btn" type="submit">Save Changes</button>
+              <a class="btn secondary" href="/dashboard.html">Back to Dashboard</a>
+            </div>
+          </form>
+        </article>
+      </div>
+    </main>
+
+    <script src="/js/app.js"></script>
+    <script>
+      mountNav();
+      if (!requireAuth()) {
+        throw new Error("Auth required");
+      }
+
+      async function loadProfile() {
+        try {
+          const data = await apiFetch("/profile");
+
+          // Avatar initials
+          const initials = data.name
+            .split(" ")
+            .map((w) => w[0])
+            .slice(0, 2)
+            .join("")
+            .toUpperCase();
+          document.getElementById("avatar-initials").textContent = initials;
+
+          // Role pill
+          const pill = document.getElementById("profile-role-pill");
+          pill.textContent = data.role;
+          pill.className = "profile-role-pill " + data.role;
+
+          // Info rows
+          document.getElementById("view-name").textContent  = data.name;
+          document.getElementById("view-email").textContent = data.email;
+          document.getElementById("view-role").textContent  = data.role.charAt(0).toUpperCase() + data.role.slice(1);
+
+          // Pre-fill form
+          document.getElementById("profile_name").value  = data.name;
+          document.getElementById("profile_email").value = data.email;
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      }
+
+      loadProfile();
+
+      document.getElementById("profile-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const newPassword     = document.getElementById("profile_password").value;
+        const confirmPassword = document.getElementById("profile_password_confirm").value;
+
+        if (newPassword !== confirmPassword) {
+          showToast("Passwords do not match.", "error");
+          return;
+        }
+
+        const body = {
+          name:  document.getElementById("profile_name").value.trim(),
+          email: document.getElementById("profile_email").value.trim(),
+        };
+        if (newPassword) body.password = newPassword;
+
+        try {
+          const result = await apiFetch("/profile", { method: "PUT", body: JSON.stringify(body) });
+          setSession(localStorage.getItem("lms_token"), result.user);
+          document.getElementById("profile_password").value        = "";
+          document.getElementById("profile_password_confirm").value = "";
+          showToast(result.message, "success");
+          loadProfile();
+        } catch (error) {
+          showToast(error.message, "error");
+        }
+      });
+    </script>
+  </body>
+</html>
