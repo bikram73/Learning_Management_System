@@ -30,6 +30,32 @@
         width: 100%;
         max-width: 420px;
       }
+
+      .auth-popup-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(5, 10, 26, 0.78);
+        backdrop-filter: blur(5px);
+        z-index: 260;
+      }
+
+      .auth-popup-modal.open {
+        display: flex;
+      }
+
+      .auth-popup-card {
+        width: 100%;
+        max-width: 460px;
+      }
+
+      .auth-popup-card p {
+        color: var(--muted);
+        margin: 8px 0 0;
+      }
     </style>
   </head>
   <body>
@@ -74,6 +100,19 @@
           </div>
         </article>
       </div>
+
+      <div class="auth-popup-modal" id="auth-popup-modal" role="dialog" aria-modal="true" aria-labelledby="auth-popup-title">
+        <article class="card auth-popup-card">
+          <h3 id="auth-popup-title" style="margin-top:0;">Continue To Enroll</h3>
+          <p>Please login or signup to enroll in this course.</p>
+
+          <div class="form-actions" style="margin-top:16px;">
+            <button class="btn" type="button" id="auth-login-btn">Login</button>
+            <button class="btn secondary" type="button" id="auth-signup-btn">Signup</button>
+            <button class="btn secondary" type="button" id="auth-cancel-btn">Cancel</button>
+          </div>
+        </article>
+      </div>
     </main>
 
     <script src="/js/app.js"></script>
@@ -92,6 +131,10 @@
       const editLessonOrderInput = document.getElementById("edit_lesson_order");
       const saveLessonEditBtn = document.getElementById("save-lesson-edit-btn");
       const cancelLessonEditBtn = document.getElementById("cancel-lesson-edit-btn");
+      const authPopupModal = document.getElementById("auth-popup-modal");
+      const authLoginBtn = document.getElementById("auth-login-btn");
+      const authSignupBtn = document.getElementById("auth-signup-btn");
+      const authCancelBtn = document.getElementById("auth-cancel-btn");
       let editingLessonId = null;
       let lessonsById = new Map();
 
@@ -128,6 +171,7 @@
             <div class="form-actions" style="margin-top: 12px;">
               ${user && user.role === "student" ? `<button id="enroll-btn" class="btn" type="button">${course.pricing_type === "paid" ? "Pay & Enroll" : "Enroll in Course"}</button>` : ""}
               <a class="btn secondary" href="/dashboard.html">Back to Dashboard</a>
+              ${!user ? `<button id="guest-enroll-btn" class="btn" type="button">${course.pricing_type === "paid" ? "Pay & Enroll" : "Free & Enroll"}</button>` : ""}
             </div>
             <div style="margin-top: 12px;">
               <strong>Progress</strong>
@@ -139,6 +183,11 @@
           const enrollBtn = document.getElementById("enroll-btn");
           if (enrollBtn) {
             enrollBtn.addEventListener("click", enrollCourse);
+          }
+
+          const guestEnrollBtn = document.getElementById("guest-enroll-btn");
+          if (guestEnrollBtn) {
+            guestEnrollBtn.addEventListener("click", showGuestAuthPopup);
           }
 
           if (user) {
@@ -169,6 +218,14 @@
         } catch (error) {
           showNotice(notice, error.message, "error");
         }
+      }
+
+      function showGuestAuthPopup() {
+        authPopupModal.classList.add("open");
+      }
+
+      function closeGuestAuthPopup() {
+        authPopupModal.classList.remove("open");
       }
 
       async function deleteLesson(lessonId) {
@@ -257,9 +314,21 @@
 
       saveLessonEditBtn.addEventListener("click", saveLessonEdits);
       cancelLessonEditBtn.addEventListener("click", closeLessonEditModal);
+      authLoginBtn.addEventListener("click", () => {
+        window.location.href = "/login.html";
+      });
+      authSignupBtn.addEventListener("click", () => {
+        window.location.href = "/signup.html";
+      });
+      authCancelBtn.addEventListener("click", closeGuestAuthPopup);
       lessonEditModal.addEventListener("click", (event) => {
         if (event.target === lessonEditModal) {
           closeLessonEditModal();
+        }
+      });
+      authPopupModal.addEventListener("click", (event) => {
+        if (event.target === authPopupModal) {
+          closeGuestAuthPopup();
         }
       });
 
