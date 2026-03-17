@@ -9,6 +9,26 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/css/style.css" />
+    <style>
+      .pricing-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(5, 10, 26, 0.78);
+        backdrop-filter: blur(5px);
+        z-index: 250;
+      }
+      .pricing-modal.open {
+        display: flex;
+      }
+      .pricing-modal-card {
+        width: 100%;
+        max-width: 420px;
+      }
+    </style>
   </head>
   <body>
     <header class="topbar">
@@ -111,6 +131,26 @@
         <div class="grid cols-3" id="all-courses"></div>
       </section>
 
+      <div class="pricing-modal" id="pricing-modal" role="dialog" aria-modal="true" aria-labelledby="pricing-modal-title">
+        <article class="card pricing-modal-card">
+          <h3 id="pricing-modal-title" style="margin-top:0;">Change Course Pricing</h3>
+
+          <label for="modal_pricing_type">Pricing Type</label>
+          <select id="modal_pricing_type">
+            <option value="free">Free</option>
+            <option value="paid">Paid</option>
+          </select>
+
+          <label for="modal_price">Price (USD)</label>
+          <input id="modal_price" type="number" min="0" step="0.01" placeholder="e.g. 49.99" disabled />
+
+          <div class="form-actions" style="margin-top:16px;">
+            <button class="btn" type="button" id="save-pricing-btn">Save</button>
+            <button class="btn secondary" type="button" id="cancel-pricing-btn">Cancel</button>
+          </div>
+        </article>
+      </div>
+
     </main>
 
     <script src="/js/app.js"></script>
@@ -122,6 +162,12 @@
 
       const user = getUser();
       const notice = document.getElementById("notice");
+      const pricingModal = document.getElementById("pricing-modal");
+      const modalPricingType = document.getElementById("modal_pricing_type");
+      const modalPrice = document.getElementById("modal_price");
+      const savePricingBtn = document.getElementById("save-pricing-btn");
+      const cancelPricingBtn = document.getElementById("cancel-pricing-btn");
+      let editingCourseId = null;
       document.getElementById("title").textContent = `${user.name}'s Dashboard`;
       document.getElementById("subtitle").textContent = user.role === "admin" ? "Admin controls enabled" : "Track your learning progress";
 
@@ -145,11 +191,69 @@
             </div>
             <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
               <a class="btn secondary" href="/course.html?id=${course.id}">Open</a>
+              <button class="btn warn" type="button" onclick="changeCoursePricing(${course.id})">Change Pricing</button>
               <button class="btn" style="background:#e53e3e; border-color:#e53e3e;" onclick="deleteCourse(${course.id})">Delete Course</button>
             </div>
           </article>
         `;
       }
+
+      function syncPricingModalFields() {
+        const isPaid = modalPricingType.value === "paid";
+        modalPrice.disabled = !isPaid;
+        modalPrice.required = isPaid;
+        if (!isPaid) {
+          modalPrice.value = "";
+        }
+      }
+
+      function closePricingModal() {
+        pricingModal.classList.remove("open");
+        editingCourseId = null;
+      }
+
+      async function changeCoursePricing(courseId) {
+        editingCourseId = courseId;
+        modalPricingType.value = "free";
+        modalPrice.value = "";
+        syncPricingModalFields();
+        pricingModal.classList.add("open");
+      }
+
+      modalPricingType.addEventListener("change", syncPricingModalFields);
+      cancelPricingBtn.addEventListener("click", closePricingModal);
+      pricingModal.addEventListener("click", (event) => {
+        if (event.target === pricingModal) {
+          closePricingModal();
+        }
+      });
+
+      savePricingBtn.addEventListener("click", async () => {
+        if (!editingCourseId) return;
+
+        const pricingType = modalPricingType.value;
+        const payload = { pricing_type: pricingType };
+        if (pricingType === "paid") {
+          const amount = Number(modalPrice.value);
+          if (!Number.isFinite(amount) || amount <= 0) {
+            showNotice(notice, "Price must be a number greater than 0.", "error");
+            return;
+          }
+          payload.price = amount;
+        }
+
+        try {
+          await apiFetch(`/course/${editingCourseId}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+          closePricingModal();
+          showNotice(notice, "Course pricing updated successfully.", "success");
+          loadMyCourses();
+        } catch (error) {
+          showNotice(notice, error.message, "error");
+        }
+      });
 
       async function deleteCourse(courseId) {
         if (!confirm("Delete this course? All its lessons will also be deleted.")) return;
