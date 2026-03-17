@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#edf3ff;font-family:Arial,Helvetica,sans-serif;color:#10213d;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf3ff;padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 28px;background:linear-gradient(135deg,#1f4fbf,#19b8a3);color:#ffffff;">
+                <div style="font-size:13px;letter-spacing:1.2px;text-transform:uppercase;opacity:0.9;">Learning Management System</div>
+                <h1 style="margin:10px 0 0;font-size:28px;line-height:1.2;">Welcome, {{ user_name }}</h1>
+                <p style="margin:8px 0 0;font-size:15px;line-height:1.6;color:#e8f3ff;">Your admin account is ready. You can now create courses, add lessons, and manage your content.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px;">
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.7;">Thanks for creating an admin account for <strong>{{ app_name }}</strong>. Your account details are below.</p>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d9e4fb;border-radius:14px;background:#f8fbff;">
+                  <tr>
+                    <td style="padding:14px 18px;border-bottom:1px solid #d9e4fb;font-size:14px;"><strong>Name:</strong> {{ user_name }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 18px;border-bottom:1px solid #d9e4fb;font-size:14px;"><strong>Email:</strong> {{ user_email }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:14px 18px;font-size:14px;"><strong>Role:</strong> {{ user_role|capitalize }}</td>
+                  </tr>
+                </table>
+                <p style="margin:18px 0 0;font-size:15px;line-height:1.7;">Recommended next steps:</p>
+                <ul style="margin:10px 0 22px;padding-left:20px;font-size:15px;line-height:1.8;color:#334766;">
+                  <li>Open your dashboard and create your first course.</li>
+                  <li>Review your account details from the profile page.</li>
+                  <li>Share course links with your students after publishing content.</li>
+                </ul>
+                <table role="presentation" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="padding-right:10px;">
+                      <a href="{{ dashboard_url }}" style="display:inline-block;padding:12px 18px;background:#1f4fbf;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:700;">Open Dashboard</a>
+                    </td>
+                    <td>
+                      <a href="{{ profile_url }}" style="display:inline-block;padding:12px 18px;background:#eaf1ff;color:#1f4fbf;text-decoration:none;border-radius:10px;font-weight:700;border:1px solid #c6d6ff;">View Profile</a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 28px;background:#f7f9fd;color:#5a6b87;font-size:13px;line-height:1.7;">
+                Need help? Contact <a href="mailto:{{ support_email }}" style="color:#1f4fbf;text-decoration:none;">{{ support_email }}</a>.
+                <br />
+                © {{ current_year }} {{ app_name }}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

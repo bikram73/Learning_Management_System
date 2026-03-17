@@ -16,6 +16,7 @@ class User(db.Model):
     created_courses = db.relationship("Course", back_populates="owner_admin", cascade="all, delete-orphan")
     enrollments = db.relationship("Enrollment", back_populates="user", cascade="all, delete-orphan")
     progress_items = db.relationship("Progress", back_populates="user", cascade="all, delete-orphan")
+    welcome_email_jobs = db.relationship("WelcomeEmailJob", back_populates="user", cascade="all, delete-orphan")
 
 
 class Course(db.Model):
@@ -88,3 +89,19 @@ class Progress(db.Model):
     __table_args__ = (
         db.UniqueConstraint("user_id", "lesson_id", name="uq_user_lesson_progress"),
     )
+
+
+class WelcomeEmailJob(db.Model):
+    __tablename__ = "welcome_email_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    template_name = db.Column(db.String(120), nullable=False)
+    subject = db.Column(db.String(200), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="pending")
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    last_error = db.Column(db.Text, nullable=True)
+    sent_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="welcome_email_jobs")

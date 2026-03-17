@@ -1,6 +1,7 @@
 from datetime import datetime
+import hmac
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import and_
 
 from database import db
@@ -13,6 +14,7 @@ from services.auth_service import (
     login_required,
     verify_password,
 )
+from services.email_service import queue_welcome_email, send_pending_welcome_emails
 
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -94,6 +96,18 @@ def _ensure_admin_owns_course(user: User, course: Course):
     return None
 
 
+def _is_valid_cron_request() -> bool:
+    expected_secret = current_app.config.get("CRON_SECRET", "")
+    if not expected_secret:
+        return False
+
+    provided_secret = (
+        request.headers.get("X-Cron-Secret", "")
+        or request.args.get("token", "")
+    )
+    return bool(provided_secret) and hmac.compare_digest(provided_secret, expected_secret)
+
+
 @api_bp.get("/health")
 def health_check():
     return jsonify({"status": "ok"})
@@ -116,6 +130,8 @@ def student_signup():
         role="student",
     )
     db.session.add(user)
+    db.session.flush()
+    queue_welcome_email(user)
     db.session.commit()
 
     return jsonify({"message": "Student account created successfully"}), 201
@@ -141,6 +157,8 @@ def admin_signup():
         role="admin",
     )
     db.session.add(user)
+    db.session.flush()
+    queue_welcome_email(user)
     db.session.commit()
 
     return jsonify({"message": "Admin account created successfully"}), 201
@@ -177,6 +195,22 @@ def login():
 def logout():
     # JWT is stateless; client deletes token to logout.
     return jsonify({"message": "Logout successful"})
+
+
+@api_bp.get("/internal/send-pending-welcome-emails")
+def process_pending_welcome_emails():
+    if not _is_valid_cron_request():
+        return jsonify({"error": "Unauthorized cron request"}), 401
+
+    try:
+        summary = send_pending_welcome_emails(limit=25)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify({
+        "message": "Welcome email queue processed",
+        **summary,
+    })
 
 
 @api_bp.get("/courses")
