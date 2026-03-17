@@ -56,6 +56,32 @@
         color: var(--muted);
         margin: 8px 0 0;
       }
+
+      .delete-confirm-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(5, 10, 26, 0.78);
+        backdrop-filter: blur(5px);
+        z-index: 270;
+      }
+
+      .delete-confirm-modal.open {
+        display: flex;
+      }
+
+      .delete-confirm-card {
+        width: 100%;
+        max-width: 460px;
+      }
+
+      .delete-confirm-card p {
+        color: var(--muted);
+        margin: 8px 0 0;
+      }
     </style>
   </head>
   <body>
@@ -113,6 +139,17 @@
           </div>
         </article>
       </div>
+
+      <div class="delete-confirm-modal" id="delete-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+        <article class="card delete-confirm-card">
+          <h3 id="delete-confirm-title" style="margin-top:0;">Confirm Delete</h3>
+          <p id="delete-confirm-message">Delete this lesson?</p>
+          <div class="form-actions" style="margin-top:16px;">
+            <button class="btn" style="background:#e53e3e; border-color:#e53e3e;" type="button" id="delete-confirm-yes">Delete</button>
+            <button class="btn secondary" type="button" id="delete-confirm-no">Cancel</button>
+          </div>
+        </article>
+      </div>
     </main>
 
     <script src="/js/app.js"></script>
@@ -135,8 +172,13 @@
       const authLoginBtn = document.getElementById("auth-login-btn");
       const authSignupBtn = document.getElementById("auth-signup-btn");
       const authCancelBtn = document.getElementById("auth-cancel-btn");
+      const deleteConfirmModal = document.getElementById("delete-confirm-modal");
+      const deleteConfirmMessage = document.getElementById("delete-confirm-message");
+      const deleteConfirmYes = document.getElementById("delete-confirm-yes");
+      const deleteConfirmNo = document.getElementById("delete-confirm-no");
       let editingLessonId = null;
       let lessonsById = new Map();
+      let pendingDeleteLessonId = null;
 
       function openLessonEditModal(lessonId) {
         const lesson = lessonsById.get(Number(lessonId));
@@ -228,8 +270,25 @@
         authPopupModal.classList.remove("open");
       }
 
+      function openDeleteConfirmModal(lessonId) {
+        pendingDeleteLessonId = lessonId;
+        deleteConfirmMessage.textContent = "Delete this lesson?";
+        deleteConfirmModal.classList.add("open");
+      }
+
+      function closeDeleteConfirmModal() {
+        deleteConfirmModal.classList.remove("open");
+        pendingDeleteLessonId = null;
+      }
+
       async function deleteLesson(lessonId) {
-        if (!confirm("Delete this lesson?")) return;
+        openDeleteConfirmModal(lessonId);
+      }
+
+      async function confirmDeleteLesson() {
+        if (!pendingDeleteLessonId) return;
+        const lessonId = pendingDeleteLessonId;
+        closeDeleteConfirmModal();
         try {
           await apiFetch(`/lesson/${lessonId}`, { method: "DELETE" });
           showNotice(notice, "Lesson deleted.", "success");
@@ -321,6 +380,8 @@
         window.location.href = "/signup.html";
       });
       authCancelBtn.addEventListener("click", closeGuestAuthPopup);
+      deleteConfirmYes.addEventListener("click", confirmDeleteLesson);
+      deleteConfirmNo.addEventListener("click", closeDeleteConfirmModal);
       lessonEditModal.addEventListener("click", (event) => {
         if (event.target === lessonEditModal) {
           closeLessonEditModal();
@@ -329,6 +390,11 @@
       authPopupModal.addEventListener("click", (event) => {
         if (event.target === authPopupModal) {
           closeGuestAuthPopup();
+        }
+      });
+      deleteConfirmModal.addEventListener("click", (event) => {
+        if (event.target === deleteConfirmModal) {
+          closeDeleteConfirmModal();
         }
       });
 
