@@ -26,31 +26,41 @@ def load_env_file():
 def ensure_schema_compatibility(app: Flask):
     """Apply minimal schema updates for both SQLite and PostgreSQL without migration tools."""
     inspector = inspect(db.engine)
-    if "courses" not in inspector.get_table_names():
-        return
-
-    columns = {column["name"] for column in inspector.get_columns("courses")}
+    
     is_sqlite = app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite")
-
     statements = []
-    if "admin_id" not in columns:
-        statements.append(
-            "ALTER TABLE courses ADD COLUMN admin_id INTEGER"
-            if is_sqlite
-            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS admin_id INTEGER"
-        )
-    if "pricing_type" not in columns:
-        statements.append(
-            "ALTER TABLE courses ADD COLUMN pricing_type TEXT DEFAULT 'free'"
-            if is_sqlite
-            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS pricing_type VARCHAR(20) DEFAULT 'free'"
-        )
-    if "price" not in columns:
-        statements.append(
-            "ALTER TABLE courses ADD COLUMN price REAL"
-            if is_sqlite
-            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS price DOUBLE PRECISION"
-        )
+
+    # Update courses table
+    if "courses" in inspector.get_table_names():
+        columns = {column["name"] for column in inspector.get_columns("courses")}
+        if "admin_id" not in columns:
+            statements.append(
+                "ALTER TABLE courses ADD COLUMN admin_id INTEGER"
+                if is_sqlite
+                else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS admin_id INTEGER"
+            )
+        if "pricing_type" not in columns:
+            statements.append(
+                "ALTER TABLE courses ADD COLUMN pricing_type TEXT DEFAULT 'free'"
+                if is_sqlite
+                else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS pricing_type VARCHAR(20) DEFAULT 'free'"
+            )
+        if "price" not in columns:
+            statements.append(
+                "ALTER TABLE courses ADD COLUMN price REAL"
+                if is_sqlite
+                else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS price DOUBLE PRECISION"
+            )
+
+    # Update users table
+    if "users" in inspector.get_table_names():
+        columns = {column["name"] for column in inspector.get_columns("users")}
+        if "reset_sent_at" not in columns:
+            statements.append(
+                "ALTER TABLE users ADD COLUMN reset_sent_at DATETIME"
+                if is_sqlite
+                else "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_sent_at TIMESTAMP"
+            )
 
     for statement in statements:
         db.session.execute(text(statement))
