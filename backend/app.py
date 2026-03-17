@@ -2,7 +2,7 @@ import os
 
 from flask import Flask, send_from_directory
 from flask_cors import CORS
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from database import db, get_database_uri
 from routes import api_bp
@@ -24,18 +24,37 @@ def load_env_file():
 
 
 def ensure_schema_compatibility(app: Flask):
-    """Apply minimal schema updates for local SQLite without external migration tools."""
-    if not app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
+    """Apply minimal schema updates for both SQLite and PostgreSQL without migration tools."""
+    inspector = inspect(db.engine)
+    if "courses" not in inspector.get_table_names():
         return
 
-    result = db.session.execute(text("PRAGMA table_info(courses)"))
-    columns = {row[1] for row in result.fetchall()}
+    columns = {column["name"] for column in inspector.get_columns("courses")}
+    is_sqlite = app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite")
+
+    statements = []
     if "admin_id" not in columns:
-        db.session.execute(text("ALTER TABLE courses ADD COLUMN admin_id INTEGER"))
+        statements.append(
+            "ALTER TABLE courses ADD COLUMN admin_id INTEGER"
+            if is_sqlite
+            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS admin_id INTEGER"
+        )
     if "pricing_type" not in columns:
-        db.session.execute(text("ALTER TABLE courses ADD COLUMN pricing_type TEXT DEFAULT 'free'"))
+        statements.append(
+            "ALTER TABLE courses ADD COLUMN pricing_type TEXT DEFAULT 'free'"
+            if is_sqlite
+            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS pricing_type VARCHAR(20) DEFAULT 'free'"
+        )
     if "price" not in columns:
-        db.session.execute(text("ALTER TABLE courses ADD COLUMN price REAL"))
+        statements.append(
+            "ALTER TABLE courses ADD COLUMN price REAL"
+            if is_sqlite
+            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS price DOUBLE PRECISION"
+        )
+
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
         db.session.commit()
 
 
