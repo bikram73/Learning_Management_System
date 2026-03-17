@@ -126,7 +126,7 @@ Learning_Management_System/
 ### 1. Clone and enter project
 
 ```powershell
-git clone <your-repo-url>
+git clone https://github.com/bikram73/Learning_Management_System.git
 cd Learning_Management_System
 ```
 
