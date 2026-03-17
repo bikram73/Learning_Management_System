@@ -236,6 +236,43 @@ label {
   font-size: 14px;
 }
 
+.password-field-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-field-wrapper input {
+  padding-right: 42px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: 2px solid var(--muted);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.password-toggle-btn:active {
+  transform: scale(0.95);
+}
+
 input,
 textarea,
 select {

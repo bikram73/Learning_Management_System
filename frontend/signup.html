@@ -41,11 +41,17 @@
           <small style="color: var(--muted);">Please enter a valid @gmail.com address to receive notifications.</small>
 
           <label for="password">Password</label>
-          <input id="password" type="password" minlength="10" required />
+          <div class="password-field-wrapper">
+            <input id="password" type="password" minlength="10" required />
+            <button class="password-toggle-btn" id="password-toggle" type="button" title="Show password">👁️</button>
+          </div>
           <small style="color: var(--muted);">Password must be at least 10 characters long.</small>
 
           <label for="confirm_password">Confirm Password</label>
-          <input id="confirm_password" type="password" minlength="10" required />
+          <div class="password-field-wrapper">
+            <input id="confirm_password" type="password" minlength="10" required />
+            <button class="password-toggle-btn" id="confirm-password-toggle" type="button" title="Show password">👁️</button>
+          </div>
           <small style="color: var(--muted);">Both passwords must match.</small>
 
           <div id="admin-code-wrap" style="display:none;">
@@ -78,6 +84,30 @@
 
       roleField.addEventListener("change", syncRoleUI);
       syncRoleUI();
+
+      // Password visibility toggles
+      const passwordField = document.getElementById("password");
+      const passwordToggle = document.getElementById("password-toggle");
+      const confirmPasswordField = document.getElementById("confirm_password");
+      const confirmPasswordToggle = document.getElementById("confirm-password-toggle");
+      let passwordVisible = false;
+      let confirmPasswordVisible = false;
+
+      passwordToggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        passwordVisible = !passwordVisible;
+        passwordField.type = passwordVisible ? "text" : "password";
+        passwordToggle.textContent = passwordVisible ? "🙈" : "👁️";
+        passwordToggle.title = passwordVisible ? "Hide password" : "Show password";
+      });
+
+      confirmPasswordToggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        confirmPasswordVisible = !confirmPasswordVisible;
+        confirmPasswordField.type = confirmPasswordVisible ? "text" : "password";
+        confirmPasswordToggle.textContent = confirmPasswordVisible ? "🙈" : "👁️";
+        confirmPasswordToggle.title = confirmPasswordVisible ? "Hide password" : "Show password";
+      });
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();

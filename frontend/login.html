@@ -33,7 +33,10 @@
           <input id="email" type="email" required />
 
           <label for="password">Password</label>
-          <input id="password" type="password" required />
+          <div class="password-field-wrapper">
+            <input id="password" type="password" required />
+            <button class="password-toggle-btn" id="password-toggle" type="button" title="Show password">👁️</button>
+          </div>
 
           <div class="form-actions">
             <button class="btn" type="submit">Login</button>
@@ -52,6 +55,19 @@
 
       const form = document.getElementById("login-form");
       const notice = document.getElementById("notice");
+
+      // Password visibility toggle
+      const passwordField = document.getElementById("password");
+      const passwordToggle = document.getElementById("password-toggle");
+      let passwordVisible = false;
+
+      passwordToggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        passwordVisible = !passwordVisible;
+        passwordField.type = passwordVisible ? "text" : "password";
+        passwordToggle.textContent = passwordVisible ? "🙈" : "👁️";
+        passwordToggle.title = passwordVisible ? "Hide password" : "Show password";
+      });
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
