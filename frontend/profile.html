@@ -69,6 +69,29 @@
         border-top: 1px solid rgba(182, 196, 229, 0.14);
         margin: 28px 0 22px;
       }
+      .danger-btn {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.45);
+        color: #ffb4b4;
+      }
+      .delete-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(5, 10, 26, 0.8);
+        backdrop-filter: blur(4px);
+        z-index: 300;
+        padding: 16px;
+      }
+      .delete-modal.open {
+        display: flex;
+      }
+      .delete-modal-card {
+        width: 100%;
+        max-width: 440px;
+      }
     </style>
   </head>
   <body>
@@ -145,7 +168,22 @@
               <button class="btn" type="submit">Save Changes</button>
               <a class="btn secondary" href="/dashboard.html">Back to Dashboard</a>
             </div>
+
+            <div class="form-actions" style="margin-top: 10px;">
+              <button class="btn danger-btn" id="delete-account-btn" type="button">Delete Account</button>
+            </div>
           </form>
+        </article>
+      </div>
+
+      <div class="delete-modal" id="delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+        <article class="card delete-modal-card">
+          <h3 id="delete-modal-title" style="margin-top:0; color:#ffb4b4;">Delete Account</h3>
+          <p style="color:var(--muted); margin-bottom:18px;">Are you sure? This action is permanent and cannot be undone.</p>
+          <div class="form-actions">
+            <button class="btn danger-btn" id="confirm-delete-btn" type="button">Yes, Delete My Account</button>
+            <button class="btn secondary" id="cancel-delete-btn" type="button">Cancel</button>
+          </div>
         </article>
       </div>
     </main>
@@ -216,6 +254,39 @@
           loadProfile();
         } catch (error) {
           showToast(error.message, "error");
+        }
+      });
+
+      const deleteModal = document.getElementById("delete-modal");
+      const deleteAccountBtn = document.getElementById("delete-account-btn");
+      const cancelDeleteBtn = document.getElementById("cancel-delete-btn");
+      const confirmDeleteBtn = document.getElementById("confirm-delete-btn");
+
+      function openDeleteModal() {
+        deleteModal.classList.add("open");
+      }
+
+      function closeDeleteModal() {
+        deleteModal.classList.remove("open");
+      }
+
+      deleteAccountBtn.addEventListener("click", openDeleteModal);
+      cancelDeleteBtn.addEventListener("click", closeDeleteModal);
+      deleteModal.addEventListener("click", (event) => {
+        if (event.target === deleteModal) closeDeleteModal();
+      });
+
+      confirmDeleteBtn.addEventListener("click", async () => {
+        try {
+          const result = await apiFetch("/profile", { method: "DELETE" });
+          clearSession();
+          showToast(result.message || "Account deleted.", "success");
+          setTimeout(() => {
+            window.location.href = "/index.html";
+          }, 400);
+        } catch (error) {
+          showToast(error.message, "error");
+          closeDeleteModal();
         }
       });
     </script>

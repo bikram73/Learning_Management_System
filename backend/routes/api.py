@@ -529,3 +529,12 @@ def update_profile():
             "role": user.role,
         },
     })
+
+
+@api_bp.delete("/profile")
+@login_required
+def delete_profile():
+    user = request.current_user
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"message": "Account deleted successfully"})
