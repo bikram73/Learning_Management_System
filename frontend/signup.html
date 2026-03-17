@@ -33,14 +33,20 @@
             <option value="admin">Admin</option>
           </select>
 
-          <label for="name">Name</label>
+          <label for="name">Username</label>
           <input id="name" type="text" required />
 
-          <label for="email">Email</label>
+          <label for="email">Email address</label>
           <input id="email" type="email" required />
+          <small style="color: var(--muted);">Please enter a valid @gmail.com address to receive notifications.</small>
 
           <label for="password">Password</label>
-          <input id="password" type="password" minlength="6" required />
+          <input id="password" type="password" minlength="10" required />
+          <small style="color: var(--muted);">Password must be at least 10 characters long.</small>
+
+          <label for="confirm_password">Confirm Password</label>
+          <input id="confirm_password" type="password" minlength="10" required />
+          <small style="color: var(--muted);">Both passwords must match.</small>
 
           <div id="admin-code-wrap" style="display:none;">
             <label for="admin_code">Admin Secret Code</label>
@@ -77,11 +83,30 @@
         event.preventDefault();
 
         const role = roleField.value;
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        const confirmPassword = document.getElementById("confirm_password").value;
+
+        if (!/^[^\s@]+@gmail\.com$/i.test(email)) {
+          showToast("Please enter a valid @gmail.com address to receive notifications.", "error");
+          return;
+        }
+
+        if (password.length < 10) {
+          showToast("Password must be at least 10 characters long.", "error");
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          showToast("Both passwords must match.", "error");
+          return;
+        }
+
         const endpoint = role === "admin" ? "/signup/admin" : "/signup/student";
         const payload = {
           name: document.getElementById("name").value,
-          email: document.getElementById("email").value,
-          password: document.getElementById("password").value,
+          email,
+          password,
         };
 
         if (role === "admin") {

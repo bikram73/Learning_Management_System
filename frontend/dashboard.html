@@ -133,7 +133,16 @@
 
       <div class="pricing-modal" id="pricing-modal" role="dialog" aria-modal="true" aria-labelledby="pricing-modal-title">
         <article class="card pricing-modal-card">
-          <h3 id="pricing-modal-title" style="margin-top:0;">Change Course Pricing</h3>
+          <h3 id="pricing-modal-title" style="margin-top:0;">Edit Course</h3>
+
+          <label for="modal_title">Title</label>
+          <input id="modal_title" required />
+
+          <label for="modal_description">Description</label>
+          <textarea id="modal_description" required></textarea>
+
+          <label for="modal_thumbnail">Thumbnail URL (optional)</label>
+          <input id="modal_thumbnail" placeholder="https://example.com/thumbnail.jpg" />
 
           <label for="modal_pricing_type">Pricing Type</label>
           <select id="modal_pricing_type">
@@ -163,11 +172,15 @@
       const user = getUser();
       const notice = document.getElementById("notice");
       const pricingModal = document.getElementById("pricing-modal");
+      const modalTitle = document.getElementById("modal_title");
+      const modalDescription = document.getElementById("modal_description");
       const modalPricingType = document.getElementById("modal_pricing_type");
       const modalPrice = document.getElementById("modal_price");
+      const modalThumbnail = document.getElementById("modal_thumbnail");
       const savePricingBtn = document.getElementById("save-pricing-btn");
       const cancelPricingBtn = document.getElementById("cancel-pricing-btn");
       let editingCourseId = null;
+      let adminCoursesById = new Map();
       document.getElementById("title").textContent = `${user.name}'s Dashboard`;
       document.getElementById("subtitle").textContent = user.role === "admin" ? "Admin controls enabled" : "Track your learning progress";
 
@@ -191,7 +204,7 @@
             </div>
             <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
               <a class="btn secondary" href="/course.html?id=${course.id}">Open</a>
-              <button class="btn warn" type="button" onclick="changeCoursePricing(${course.id})">Change Pricing</button>
+              <button class="btn warn" type="button" onclick="changeCoursePricing(${course.id})">Edit Course</button>
               <button class="btn" style="background:#e53e3e; border-color:#e53e3e;" onclick="deleteCourse(${course.id})">Delete Course</button>
             </div>
           </article>
@@ -214,8 +227,12 @@
 
       async function changeCoursePricing(courseId) {
         editingCourseId = courseId;
-        modalPricingType.value = "free";
-        modalPrice.value = "";
+        const course = adminCoursesById.get(courseId);
+        modalTitle.value = course?.title || "";
+        modalDescription.value = course?.description || "";
+        modalPricingType.value = course?.pricing_type || "free";
+        modalPrice.value = course?.pricing_type === "paid" ? String(Number(course?.price || 0)) : "";
+        modalThumbnail.value = course?.thumbnail || "";
         syncPricingModalFields();
         pricingModal.classList.add("open");
       }
@@ -232,7 +249,20 @@
         if (!editingCourseId) return;
 
         const pricingType = modalPricingType.value;
-        const payload = { pricing_type: pricingType };
+        const payload = {
+          title: modalTitle.value.trim(),
+          description: modalDescription.value.trim(),
+          pricing_type: pricingType,
+          thumbnail: modalThumbnail.value.trim(),
+        };
+        if (!payload.title) {
+          showNotice(notice, "Title is required.", "error");
+          return;
+        }
+        if (!payload.description) {
+          showNotice(notice, "Description is required.", "error");
+          return;
+        }
         if (pricingType === "paid") {
           const amount = Number(modalPrice.value);
           if (!Number.isFinite(amount) || amount <= 0) {
@@ -248,7 +278,7 @@
             body: JSON.stringify(payload),
           });
           closePricingModal();
-          showNotice(notice, "Course pricing updated successfully.", "success");
+          showNotice(notice, "Course updated successfully.", "success");
           loadMyCourses();
         } catch (error) {
           showNotice(notice, error.message, "error");
@@ -308,6 +338,9 @@
         const wrap = document.getElementById("my-courses");
         try {
           const courses = await apiFetch("/my-courses");
+          if (user.role === "admin") {
+            adminCoursesById = new Map(courses.map((course) => [course.id, course]));
+          }
           wrap.innerHTML = courses.length
             ? courses.map((course) => user.role === "admin" ? fmtAdminCourseCard(course) : fmtCourseCard(course)).join("")
             : '<article class="card">No courses yet.</article>';
