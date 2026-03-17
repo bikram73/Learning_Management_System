@@ -125,8 +125,18 @@
 
       <section id="all-courses-section" style="margin-top: 26px;">
         <div class="section-head">
-          <h3>All Courses</h3>
-          <p>Discover and enroll</p>
+          <div class="section-head-text">
+            <h3>All Courses</h3>
+            <p>Discover and enroll</p>
+          </div>
+          <div class="courses-search-wrapper">
+            <input
+              type="text"
+              id="all-courses-search"
+              class="courses-search-input"
+              placeholder="Search by title, description, or instructor..."
+            />
+          </div>
         </div>
         <div class="grid cols-3" id="all-courses"></div>
       </section>
@@ -349,12 +359,43 @@
         }
       }
 
+      let allCoursesData = [];
+
+      function filterAllCourses(query) {
+        const wrap = document.getElementById("all-courses");
+        if (!query.trim()) {
+          wrap.innerHTML = allCoursesData.length
+            ? allCoursesData.map((course) => fmtCourseCard(course, true)).join("")
+            : '<article class="card">No courses available.</article>';
+          return;
+        }
+
+        const lowerQuery = query.toLowerCase();
+        const filtered = allCoursesData.filter(
+          (course) =>
+            course.title.toLowerCase().includes(lowerQuery) ||
+            course.description.toLowerCase().includes(lowerQuery) ||
+            course.instructor.toLowerCase().includes(lowerQuery)
+        );
+
+        if (!filtered.length) {
+          wrap.innerHTML = '<article class="card">No courses match your search.</article>';
+          return;
+        }
+        wrap.innerHTML = filtered.map((course) => fmtCourseCard(course, true)).join("");
+      }
+
+      const allCoursesSearchInput = document.getElementById("all-courses-search");
+      if (allCoursesSearchInput) {
+        allCoursesSearchInput.addEventListener("input", (e) => filterAllCourses(e.target.value));
+      }
+
       async function loadAllCourses() {
         const wrap = document.getElementById("all-courses");
         try {
-          const courses = await apiFetch("/courses");
-          wrap.innerHTML = courses.length
-            ? courses.map((course) => fmtCourseCard(course, true)).join("")
+          allCoursesData = await apiFetch("/courses");
+          wrap.innerHTML = allCoursesData.length
+            ? allCoursesData.map((course) => fmtCourseCard(course, true)).join("")
             : '<article class="card">No courses available.</article>';
         } catch (error) {
           wrap.innerHTML = `<article class="card">${error.message}</article>`;

@@ -50,8 +50,18 @@
 
     <main class="container main">
       <div class="section-head">
-        <h2>Browse Courses</h2>
-        <p>New skills for modern careers</p>
+        <div class="section-head-text">
+          <h2>Browse Courses</h2>
+          <p>New skills for modern careers</p>
+        </div>
+        <div class="courses-search-wrapper">
+          <input
+            type="text"
+            id="courses-search"
+            class="courses-search-input"
+            placeholder="Search by title, description, or instructor..."
+          />
+        </div>
       </div>
       <section id="courses-grid" class="grid cols-3"></section>
     </main>
@@ -62,15 +72,44 @@
     <script>
       mountNav();
 
+      let allCourses = [];
+
+      function filterCourses(query) {
+        const grid = document.getElementById("courses-grid");
+        if (!query.trim()) {
+          grid.innerHTML = allCourses.map((course) => fmtCourseCard(course)).join("");
+          return;
+        }
+
+        const lowerQuery = query.toLowerCase();
+        const filtered = allCourses.filter(
+          (course) =>
+            course.title.toLowerCase().includes(lowerQuery) ||
+            course.description.toLowerCase().includes(lowerQuery) ||
+            course.instructor.toLowerCase().includes(lowerQuery)
+        );
+
+        if (!filtered.length) {
+          grid.innerHTML = '<article class="card">No courses match your search.</article>';
+          return;
+        }
+        grid.innerHTML = filtered.map((course) => fmtCourseCard(course)).join("");
+      }
+
+      const searchInput = document.getElementById("courses-search");
+      if (searchInput) {
+        searchInput.addEventListener("input", (e) => filterCourses(e.target.value));
+      }
+
       (async function loadCourses() {
         const grid = document.getElementById("courses-grid");
         try {
-          const courses = await apiFetch("/courses");
-          if (!courses.length) {
+          allCourses = await apiFetch("/courses");
+          if (!allCourses.length) {
             grid.innerHTML = '<article class="card">No courses yet. Admins can add courses from dashboard.</article>';
             return;
           }
-          grid.innerHTML = courses.map((course) => fmtCourseCard(course)).join("");
+          grid.innerHTML = allCourses.map((course) => fmtCourseCard(course)).join("");
         } catch (error) {
           grid.innerHTML = `<article class="card">Unable to load courses: ${error.message}</article>`;
         }
