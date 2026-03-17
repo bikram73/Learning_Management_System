@@ -12,6 +12,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="student")
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    reset_sent_at = db.Column(db.DateTime, nullable=True)
 
     created_courses = db.relationship("Course", back_populates="owner_admin", cascade="all, delete-orphan")
     enrollments = db.relationship("Enrollment", back_populates="user", cascade="all, delete-orphan")

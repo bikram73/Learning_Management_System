@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import hmac
 from io import BytesIO
 import secrets
@@ -579,6 +579,7 @@ def enroll_course():
         return jsonify({"message": "Already enrolled"}), 200
 
     if course.pricing_type == "paid":
+        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
         pending_request = (
             PaymentRequest.query.filter_by(
                 user_id=current_user.id,
@@ -588,6 +589,21 @@ def enroll_course():
             .order_by(PaymentRequest.created_at.desc())
             .first()
         )
+
+        if pending_request:
+            if pending_request.created_at > one_hour_ago:
+                # Active link still valid — block re-send
+                wait_seconds = int((pending_request.created_at - one_hour_ago).total_seconds())
+                wait_minutes = max(1, wait_seconds // 60)
+                return jsonify({
+                    "error": f"A payment link was already sent. Please wait {wait_minutes} minute(s) before requesting another."
+                }), 429
+            else:
+                # Stale link — mark expired and create a fresh one
+                pending_request.status = "expired"
+                db.session.commit()
+                pending_request = None
+
         if not pending_request:
             pending_request = PaymentRequest(
                 user_id=current_user.id,
@@ -626,6 +642,13 @@ def get_payment_request(token: str):
     payment_request = PaymentRequest.query.filter_by(token=token).first()
     if not payment_request or payment_request.status != "pending":
         return jsonify({"error": "Payment link is invalid or expired"}), 404
+
+    # Expire links older than 1 hour on access
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    if payment_request.created_at < one_hour_ago:
+        payment_request.status = "expired"
+        db.session.commit()
+        return jsonify({"error": "Payment link has expired. Please request a new one."}), 410
 
     return jsonify({
         "course_id": payment_request.course.id,
@@ -832,12 +855,17 @@ def forgot_password():
     
     # Always return success even if user doesn't exist (security measure)
     if user:
+        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        if user.reset_sent_at and user.reset_sent_at > one_hour_ago:
+            wait_seconds = int((user.reset_sent_at - one_hour_ago).total_seconds())
+            wait_minutes = max(1, wait_seconds // 60)
+            return jsonify({"error": f"A reset link was already sent. Please wait {wait_minutes} minute(s) before requesting another."}), 429
         try:
-            # Generate a reset token valid for 24 hours
-            reset_token = generate_token(user, expires_in=86400)  # 24 hours
+            reset_token = generate_token(user, expires_in=3600)  # 1 hour
             send_reset_password_email(user, reset_token)
+            user.reset_sent_at = datetime.utcnow()
+            db.session.commit()
         except Exception as exc:
-            # Log the error but don't expose it to the user
             current_app.logger.error(f"Failed to send reset email to {email}: {str(exc)}")
 
     return jsonify({"message": "If an account with this email exists, a reset link has been sent to your inbox."})
