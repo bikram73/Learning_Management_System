@@ -6,7 +6,8 @@ import secrets
 from flask import Blueprint, current_app, jsonify, request
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-from sqlalchemy import and_
+from sqlalchemy import and_, inspect, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from database import db
 from models import Course, Enrollment, Lesson, PaymentRequest, Progress, User
@@ -119,6 +120,40 @@ def _is_valid_cron_request() -> bool:
         or request.args.get("token", "")
     )
     return bool(provided_secret) and hmac.compare_digest(provided_secret, expected_secret)
+
+
+def _ensure_courses_columns_runtime():
+    inspector = inspect(db.engine)
+    if "courses" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("courses")}
+    is_sqlite = current_app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite")
+
+    statements = []
+    if "admin_id" not in columns:
+        statements.append(
+            "ALTER TABLE courses ADD COLUMN admin_id INTEGER"
+            if is_sqlite
+            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS admin_id INTEGER"
+        )
+    if "pricing_type" not in columns:
+        statements.append(
+            "ALTER TABLE courses ADD COLUMN pricing_type TEXT DEFAULT 'free'"
+            if is_sqlite
+            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS pricing_type VARCHAR(20) DEFAULT 'free'"
+        )
+    if "price" not in columns:
+        statements.append(
+            "ALTER TABLE courses ADD COLUMN price REAL"
+            if is_sqlite
+            else "ALTER TABLE courses ADD COLUMN IF NOT EXISTS price DOUBLE PRECISION"
+        )
+
+    for statement in statements:
+        db.session.execute(text(statement))
+    if statements:
+        db.session.commit()
 
 
 def _build_payment_receipt_pdf(user: User, course: Course, receipt_number: str, amount: float) -> bytes:
@@ -300,7 +335,21 @@ def create_course():
         admin_id=request.current_user.id,
     )
     db.session.add(course)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        error_text = str(exc).lower()
+        if any(key in error_text for key in ["pricing_type", "price", "admin_id", "column"]):
+            try:
+                _ensure_courses_columns_runtime()
+                db.session.add(course)
+                db.session.commit()
+            except SQLAlchemyError as retry_exc:
+                db.session.rollback()
+                return jsonify({"error": f"Failed to create course after schema repair: {str(retry_exc)}"}), 500
+        else:
+            return jsonify({"error": f"Failed to create course: {str(exc)}"}), 500
 
     return jsonify({"message": "Course created", "course": _course_to_dict(course)}), 201
 
