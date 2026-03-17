@@ -90,7 +90,14 @@
           detail.innerHTML = `
             <h2>Lesson ${lesson.lesson_order}: ${lesson.title}</h2>
             <p style="color:var(--muted);">Watch the lesson video, then mark it complete.</p>
-            <iframe class="video-frame" src="${normalizeVideoUrl(lesson.video_url)}" title="Lesson video" allowfullscreen></iframe>
+            <div class="video-container">
+              <iframe 
+                src="${normalizeVideoUrl(lesson.video_url)}" 
+                title="Lesson video" 
+                allowfullscreen 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              ></iframe>
+            </div>
             <div class="form-actions">
               ${user.role === "student" ? '<button class="btn accent" id="complete-btn" type="button">Mark Lesson Complete</button>' : ""}
               <a class="btn secondary" href="/course.html?id=${courseId}">Back to Course</a>
