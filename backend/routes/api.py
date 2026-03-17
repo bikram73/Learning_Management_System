@@ -122,6 +122,19 @@ def _is_valid_cron_request() -> bool:
     return bool(provided_secret) and hmac.compare_digest(provided_secret, expected_secret)
 
 
+def _normalize_thumbnail(value: str | None) -> str | None:
+    thumbnail = (value or "").strip()
+    if not thumbnail:
+        return None
+
+    # Current schema stores thumbnail as VARCHAR(500). If UI sends large base64 data,
+    # keep course creation working by ignoring the oversized thumbnail instead of failing.
+    if len(thumbnail) > 500:
+        return None
+
+    return thumbnail
+
+
 def _ensure_courses_columns_runtime():
     inspector = inspect(db.engine)
     if "courses" not in inspector.get_table_names():
@@ -329,7 +342,7 @@ def create_course():
         title=data["title"].strip(),
         description=data["description"].strip(),
         instructor=data["instructor"].strip(),
-        thumbnail=(data.get("thumbnail") or "").strip() or None,
+        thumbnail=_normalize_thumbnail(data.get("thumbnail")),
         pricing_type=pricing_type,
         price=price,
         admin_id=request.current_user.id,
@@ -371,7 +384,7 @@ def update_course(course_id: int):
     if "instructor" in data and data["instructor"].strip():
         course.instructor = data["instructor"].strip()
     if "thumbnail" in data:
-        course.thumbnail = (data.get("thumbnail") or "").strip() or None
+        course.thumbnail = _normalize_thumbnail(data.get("thumbnail"))
     if "pricing_type" in data:
         pricing_type = (data.get("pricing_type") or "").strip().lower()
         if pricing_type not in {"free", "paid"}:
