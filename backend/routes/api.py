@@ -2,6 +2,7 @@ from datetime import datetime
 import hmac
 from io import BytesIO
 import secrets
+from urllib.parse import parse_qs, urlparse
 
 from flask import Blueprint, current_app, jsonify, request
 from reportlab.lib.pagesizes import A4
@@ -52,7 +53,7 @@ def _lesson_to_dict(lesson: Lesson, completed_ids: set[int] | None = None, unloc
         "id": lesson.id,
         "course_id": lesson.course_id,
         "title": lesson.title,
-        "video_url": lesson.video_url,
+        "video_url": _normalize_video_url(lesson.video_url),
         "lesson_order": lesson.lesson_order,
         "created_at": lesson.created_at.isoformat(),
         "completed": lesson.id in (completed_ids or set()),
@@ -133,6 +134,38 @@ def _normalize_thumbnail(value: str | None) -> str | None:
         return None
 
     return thumbnail
+
+
+def _normalize_video_url(value: str | None) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+
+    try:
+        parsed = urlparse(raw)
+    except Exception:
+        return raw
+
+    host = (parsed.netloc or "").lower()
+    path = parsed.path or ""
+
+    if "youtu.be" in host:
+        video_id = path.strip("/")
+        return f"https://www.youtube.com/embed/{video_id}" if video_id else raw
+
+    if "youtube.com" in host:
+        if path.startswith("/watch"):
+            qs = parse_qs(parsed.query)
+            video_id = (qs.get("v") or [""])[0]
+            return f"https://www.youtube.com/embed/{video_id}" if video_id else raw
+        if path.startswith("/shorts/"):
+            parts = path.split("/")
+            video_id = parts[2] if len(parts) > 2 else ""
+            return f"https://www.youtube.com/embed/{video_id}" if video_id else raw
+        if path.startswith("/embed/"):
+            return raw
+
+    return raw
 
 
 def _ensure_courses_columns_runtime():
@@ -460,7 +493,7 @@ def create_lesson():
     lesson = Lesson(
         course_id=course.id,
         title=data["title"].strip(),
-        video_url=data["video_url"].strip(),
+        video_url=_normalize_video_url(data["video_url"]),
         lesson_order=int(data["lesson_order"]),
     )
     db.session.add(lesson)
@@ -499,7 +532,7 @@ def update_lesson(lesson_id: int):
     if "title" in data and data["title"].strip():
         lesson.title = data["title"].strip()
     if "video_url" in data and data["video_url"].strip():
-        lesson.video_url = data["video_url"].strip()
+        lesson.video_url = _normalize_video_url(data["video_url"])
     if "lesson_order" in data:
         lesson.lesson_order = int(data["lesson_order"])
 

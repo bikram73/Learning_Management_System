@@ -41,6 +41,34 @@
       const detail = document.getElementById("lesson-detail");
       const user = getUser();
 
+      function normalizeVideoUrl(url) {
+        const raw = (url || "").trim();
+        if (!raw) return raw;
+        try {
+          const parsed = new URL(raw);
+          const host = parsed.hostname.toLowerCase();
+          const path = parsed.pathname || "";
+
+          if (host.includes("youtu.be")) {
+            const id = path.replace(/^\//, "");
+            return id ? `https://www.youtube.com/embed/${id}` : raw;
+          }
+          if (host.includes("youtube.com")) {
+            if (path.startsWith("/watch")) {
+              const id = parsed.searchParams.get("v");
+              return id ? `https://www.youtube.com/embed/${id}` : raw;
+            }
+            if (path.startsWith("/shorts/")) {
+              const id = path.split("/")[2];
+              return id ? `https://www.youtube.com/embed/${id}` : raw;
+            }
+          }
+        } catch {
+          return raw;
+        }
+        return raw;
+      }
+
       async function loadLesson() {
         try {
           const lessons = await apiFetch(`/course/${courseId}/lessons`);
@@ -62,7 +90,7 @@
           detail.innerHTML = `
             <h2>Lesson ${lesson.lesson_order}: ${lesson.title}</h2>
             <p style="color:var(--muted);">Watch the lesson video, then mark it complete.</p>
-            <iframe class="video-frame" src="${lesson.video_url}" title="Lesson video" allowfullscreen></iframe>
+            <iframe class="video-frame" src="${normalizeVideoUrl(lesson.video_url)}" title="Lesson video" allowfullscreen></iframe>
             <div class="form-actions">
               ${user.role === "student" ? '<button class="btn accent" id="complete-btn" type="button">Mark Lesson Complete</button>' : ""}
               <a class="btn secondary" href="/course.html?id=${courseId}">Back to Course</a>
