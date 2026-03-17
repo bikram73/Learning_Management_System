@@ -40,6 +40,8 @@
       const notice = document.getElementById("notice");
       const detail = document.getElementById("lesson-detail");
       const user = getUser();
+      let allLessons = [];
+      let currentLesson = null;
 
       function normalizeVideoUrl(url) {
         const raw = (url || "").trim();
@@ -72,7 +74,9 @@
       async function loadLesson() {
         try {
           const lessons = await apiFetch(`/course/${courseId}/lessons`);
+          allLessons = lessons;
           const lesson = lessons.find((item) => item.id === lessonId);
+          currentLesson = lesson;
           if (!lesson) {
             detail.innerHTML = "<h3>Lesson not found.</h3>";
             return;
@@ -99,7 +103,10 @@
               ></iframe>
             </div>
             <div class="form-actions">
-              ${user.role === "student" ? '<button class="btn accent" id="complete-btn" type="button">Mark Lesson Complete</button>' : ""}
+              ${user.role === "student" ? `
+                <button class="btn accent" id="complete-btn" type="button">Mark Lesson Complete</button>
+                <button class="btn" id="next-btn" type="button">Next Lesson</button>
+              ` : ""}
               <a class="btn secondary" href="/course.html?id=${courseId}">Back to Course</a>
             </div>
           `;
@@ -107,6 +114,11 @@
           const completeBtn = document.getElementById("complete-btn");
           if (completeBtn) {
             completeBtn.addEventListener("click", completeLesson);
+          }
+
+          const nextBtn = document.getElementById("next-btn");
+          if (nextBtn) {
+            nextBtn.addEventListener("click", goToNextLesson);
           }
         } catch (error) {
           detail.innerHTML = `<h3>${error.message}</h3>`;
@@ -120,9 +132,35 @@
             body: JSON.stringify({ lesson_id: lessonId }),
           });
           showNotice(notice, "Lesson marked complete. Next lesson unlocked if available.", "success");
+          if (currentLesson) {
+            currentLesson.completed = true;
+          }
         } catch (error) {
           showNotice(notice, error.message, "error");
         }
+      }
+
+      function goToNextLesson() {
+        if (!currentLesson) {
+          showToast("Lesson not found.", "error");
+          return;
+        }
+
+        if (!currentLesson.completed) {
+          showToast("Please mark the lesson complete first before going to the next lesson.", "error");
+          return;
+        }
+
+        const sortedLessons = allLessons.sort((a, b) => a.lesson_order - b.lesson_order);
+        const currentIndex = sortedLessons.findIndex((l) => l.id === lessonId);
+        
+        if (currentIndex === -1 || currentIndex >= sortedLessons.length - 1) {
+          showToast("No more lessons available.", "info");
+          return;
+        }
+
+        const nextLesson = sortedLessons[currentIndex + 1];
+        window.location.href = `/lesson.html?id=${nextLesson.id}&course=${courseId}`;
       }
 
       loadLesson();
