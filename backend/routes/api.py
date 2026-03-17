@@ -19,6 +19,7 @@ from services.auth_service import (
     is_valid_admin_code,
     login_required,
     verify_password,
+    verify_token,
 )
 from services.email_service import (
     queue_welcome_email,
@@ -26,6 +27,7 @@ from services.email_service import (
     send_course_payment_email,
     send_new_lesson_email,
     send_pending_welcome_emails,
+    send_reset_password_email,
     send_welcome_course_email,
 )
 
@@ -817,3 +819,66 @@ def delete_profile():
     db.session.delete(user)
     db.session.commit()
     return jsonify({"message": "Account deleted successfully"})
+
+
+@api_bp.post("/forgot-password")
+def forgot_password():
+    data, error_response, status = _require_json_body(["email"])
+    if error_response:
+        return error_response, status
+
+    email = data["email"].strip().lower()
+    user = User.query.filter_by(email=email).first()
+    
+    # Always return success even if user doesn't exist (security measure)
+    if user:
+        try:
+            # Generate a reset token valid for 24 hours
+            reset_token = generate_token(user, expires_in=86400)  # 24 hours
+            send_reset_password_email(user, reset_token)
+        except Exception as exc:
+            # Log the error but don't expose it to the user
+            current_app.logger.error(f"Failed to send reset email to {email}: {str(exc)}")
+
+    return jsonify({"message": "If an account with this email exists, a reset link has been sent to your inbox."})
+
+
+@api_bp.get("/reset-password/<string:token>")
+def verify_reset_token_endpoint(token: str):
+    try:
+        payload = verify_token(token)
+        
+        user = User.query.get(payload.get("user_id"))
+        if not user:
+            return jsonify({"error": "Invalid or expired reset token"}), 401
+        
+        return jsonify({"email": user.email}), 200
+    except Exception:
+        return jsonify({"error": "Invalid or expired reset token"}), 401
+
+
+@api_bp.post("/reset-password")
+def reset_password():
+    data, error_response, status = _require_json_body(["token", "password"])
+    if error_response:
+        return error_response, status
+
+    token = data.get("token", "").strip()
+    password = data.get("password", "").strip()
+
+    if not password or len(password) < 10:
+        return jsonify({"error": "Password must be at least 10 characters long"}), 400
+
+    try:
+        payload = verify_token(token)
+        
+        user = User.query.get(payload.get("user_id"))
+        if not user:
+            return jsonify({"error": "Invalid or expired reset token"}), 401
+        
+        user.password_hash = hash_password(password)
+        db.session.commit()
+        
+        return jsonify({"message": "Password reset successfully"}), 200
+    except Exception:
+        return jsonify({"error": "Invalid or expired reset token"}), 401

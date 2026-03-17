@@ -1,5 +1,6 @@
 from functools import wraps
 from typing import Callable
+from datetime import datetime, timedelta
 
 import jwt
 from flask import current_app, jsonify, request
@@ -19,12 +20,16 @@ def verify_password(password_hash: str, password: str) -> bool:
     return check_password_hash(password_hash, password)
 
 
-def generate_token(user: User) -> str:
+def generate_token(user: User, expires_in: int | None = None) -> str:
     payload = {
         "user_id": user.id,
         "email": user.email,
         "role": user.role,
     }
+    
+    if expires_in:
+        payload["exp"] = datetime.utcnow() + timedelta(seconds=expires_in)
+    
     secret_key = current_app.config["SECRET_KEY"]
     return jwt.encode(payload, secret_key, algorithm="HS256")
 
@@ -32,6 +37,11 @@ def generate_token(user: User) -> str:
 def decode_token(token: str):
     secret_key = current_app.config["SECRET_KEY"]
     return jwt.decode(token, secret_key, algorithms=["HS256"])
+
+
+# Alias for backwards compatibility and clarity
+def verify_token(token: str):
+    return decode_token(token)
 
 
 def get_auth_token_from_header() -> str | None:

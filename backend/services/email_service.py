@@ -224,3 +224,18 @@ def send_pending_welcome_emails(limit: int = 20) -> dict:
         "sent": sent,
         "failed": failed,
     }
+
+
+def send_reset_password_email(user, reset_token: str):
+    config = _mail_config()
+    reset_link = f"{config['app_base_url']}/reset_password.html?token={reset_token}"
+    html_body = render_template(
+        "reset_password_mail.html",
+        user_name=user.name,
+        user_email=user.email,
+        reset_link=reset_link,
+        support_email=config["support_email"],
+        app_name="Learning Management System",
+        current_year=datetime.utcnow().year,
+    )
+    send_html_email(user.email, "Reset Your Password - Learning Management System", html_body)
