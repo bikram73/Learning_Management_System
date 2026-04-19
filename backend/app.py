@@ -1,8 +1,9 @@
 import os
 
-from flask import Flask, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from database import db, get_database_uri
 from routes import api_bp
@@ -88,11 +89,24 @@ def create_app() -> Flask:
     CORS(app)
     db.init_app(app)
 
-    with app.app_context():
-        db.create_all()
-        ensure_schema_compatibility(app)
+    app.config["DB_AVAILABLE"] = True
+    try:
+        with app.app_context():
+            db.create_all()
+            ensure_schema_compatibility(app)
+    except SQLAlchemyError as exc:
+        app.config["DB_AVAILABLE"] = False
+        app.logger.error("Database initialization failed: %s", exc)
 
     app.register_blueprint(api_bp)
+
+    @app.errorhandler(OperationalError)
+    def handle_operational_error(error):
+        db.session.rollback()
+        app.logger.error("Database operation failed: %s", error)
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Database is temporarily unavailable. Please try again later."}), 503
+        return jsonify({"error": "Service temporarily unavailable."}), 503
 
     @app.get("/")
     def home_page():
